@@ -1,0 +1,30 @@
+{
+	"nodes":[
+		{"id":"42df9342fce866ab","type":"text","text":"# user\n\n- `id uuid pk default gen_random_uuid()`\n- `username varchar(50) not null`\n- `password varchar(255) not null`\n- `first_name varchar(100) not null`\n- `last_name varchar(100) not null`\n- `email varchar(100) not null`\n- `unique index (lower(username))`\n- `unique index (lower(email))`\n- `verified boolean not null default false`\n- `status enum(active, inactive, locked) not null default active`\n- `role enum(superuser, guest) not null default guest`\n- `created_at timestamptz not null default now()`\n- `updated_at timestamptz`\n","x":-280,"y":920,"width":666,"height":470},
+		{"id":"9e789b8302a37566","type":"text","text":"# host\n\n- `id uuid pk default gen_random_uuid()`\n- `user_id uuid fk references user(id) on delete set null`\n- `ip_address inet not null`\n- `(user_id, ip_address) unique`\n- `status enum(authorized, banned) not null default authorized`\n- `last_seen_at timestamptz not null default now()`\n- `updated_at timestamptz`\n","x":1360,"y":920,"width":620,"height":470},
+		{"id":"cf80e2b75e1bf745","type":"text","text":"## user_agent_conversation","x":-120,"y":179,"width":332,"height":60},
+		{"id":"ffd27e24ce572d47","type":"text","text":"## user_host","x":840,"y":1125,"width":170,"height":60},
+		{"id":"f64340cb17dbb1bb","type":"text","text":"## host_event_log","x":2200,"y":1125,"width":215,"height":60},
+		{"id":"6160d4a68b600382","type":"text","text":"# event_log\n\n- `id uuid pk default gen_random_uuid()`\n- `host_id uuid fk references host(id) on delete set null`\n- `user_agent varchar(512) not null`\n- `severity enum(info, warning, critical) not null`\n- `description varchar(100)`\n- `created_at timestamptz not null default now()`\n","x":2680,"y":900,"width":660,"height":510},
+		{"id":"78d81f6788d07dc1","type":"text","text":"## message_user","x":-1085,"y":1125,"width":250,"height":60},
+		{"id":"2e7926e0f2384a22","type":"text","text":"# conversation\n\n- `id uuid pk default gen_random_uuid()`\n- `title varchar(100)`\n- `user_id uuid fk references user(id) on delete cascade`\n- `created_at timestamptz not null default now()`\n- `updated_at timestamptz`\n","x":-1350,"y":-31,"width":780,"height":480},
+		{"id":"9b8e584c62761457","type":"text","text":"## conversation_agent_message","x":-1150,"y":-260,"width":380,"height":50},
+		{"id":"ddc1377279603375","type":"text","text":"# agent_message\n\n- `id uuid pk default gen_random_uuid()`\n- `conversation_id uuid fk references conversation(id) on delete cascade`\n- `issuer enum(agent, human) not null default human`\n- `content text not null`\n- `created_at timestamptz not null default now()`\n- `deleted_at timestamptz`\n- `updated_at timestamptz`\n","x":-1350,"y":-980,"width":780,"height":501},
+		{"id":"7cfb907eaa549353","type":"text","text":"# message\n\n- `id uuid pk default gen_random_uuid()`\n- `sender_id   uuid fk references user(id) on delete set null`\n- `receiver_id uuid fk references user(id) on delete set null`\n- `reply_to uuid`\n- `issuer enum(agent, human) default human not null`\n- `content text not null`\n- `created_at timestamptz not null default now()`\n- `deleted_at timestamptz`\n- `updated_at timestamptz`\n","x":-2480,"y":904,"width":843,"height":501},
+		{"id":"a3c9e1f07b2d4e58","type":"text","text":"## message_reply","x":-2880,"y":700,"width":230,"height":50}
+	],
+	"edges":[
+		{"id":"75514661e6cdb202","fromNode":"ffd27e24ce572d47","fromSide":"left","toNode":"42df9342fce866ab","toSide":"right","toEnd":"none","label":"1,N"},
+		{"id":"0e83561dae59a4b8","fromNode":"ffd27e24ce572d47","fromSide":"right","toNode":"9e789b8302a37566","toSide":"left","toEnd":"none","label":"0,1"},
+		{"id":"05a1916f23f3fc79","fromNode":"f64340cb17dbb1bb","fromSide":"right","toNode":"6160d4a68b600382","toSide":"left","toEnd":"none","label":"0,1"},
+		{"id":"5d7f2b9c1e3a6048","fromNode":"a3c9e1f07b2d4e58","fromSide":"top","toNode":"7cfb907eaa549353","toSide":"top","toEnd":"none","label":"0,1 (replies to)"},
+		{"id":"c81e4a7d93f0b265","fromNode":"a3c9e1f07b2d4e58","fromSide":"bottom","toNode":"7cfb907eaa549353","toSide":"left","toEnd":"none","label":"0,N (replied by)"},
+		{"id":"1eb090827917334e","fromNode":"9e789b8302a37566","fromSide":"right","toNode":"f64340cb17dbb1bb","toSide":"left","toEnd":"none","label":"1,N"},
+		{"id":"3dd4b80918e54b4d","fromNode":"2e7926e0f2384a22","fromSide":"top","toNode":"9b8e584c62761457","toSide":"bottom","toEnd":"none","label":"0,N"},
+		{"id":"a4b1cd8f923eaaef","fromNode":"cf80e2b75e1bf745","fromSide":"bottom","toNode":"42df9342fce866ab","toSide":"top","toEnd":"none","label":"0,N"},
+		{"id":"06d56a61ea989e7c","fromNode":"2e7926e0f2384a22","fromSide":"right","toNode":"cf80e2b75e1bf745","toSide":"left","toEnd":"none","label":"1,1"},
+		{"id":"d9e0c76aafb530ea","fromNode":"7cfb907eaa549353","fromSide":"right","toNode":"78d81f6788d07dc1","toSide":"left","toEnd":"none","label":"1,1"},
+		{"id":"b4f910c1f9a2f6a4","fromNode":"78d81f6788d07dc1","fromSide":"right","toNode":"42df9342fce866ab","toSide":"left","toEnd":"none","label":"0,N"},
+		{"id":"b8224166647e1225","fromNode":"ddc1377279603375","fromSide":"bottom","toNode":"9b8e584c62761457","toSide":"top","toEnd":"none","label":"1,1"}
+	]
+}
