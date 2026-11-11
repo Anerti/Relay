@@ -20,9 +20,15 @@ public abstract class TestcontainersConfig {
             new GenericContainer<>(DockerImageName.parse("redis:7-alpine"))
                     .withExposedPorts(6379);
 
+    // Local SMTP sink so tests send real mail without Gmail; HTTP API on 8025 lists received messages
+    private static final GenericContainer<?> MAILPIT =
+            new GenericContainer<>(DockerImageName.parse("axllent/mailpit:v1.27"))
+                    .withExposedPorts(1025, 8025);
+
     static {
         POSTGRES.start();
         REDIS.start();
+        MAILPIT.start();
     }
 
     @DynamicPropertySource
@@ -34,5 +40,7 @@ public abstract class TestcontainersConfig {
         registry.add(
                 "spring.data.redis.url",
                 () -> "redis://" + REDIS.getHost() + ":" + REDIS.getMappedPort(6379));
+        registry.add("spring.mail.host", MAILPIT::getHost);
+        registry.add("spring.mail.port", () -> MAILPIT.getMappedPort(1025));
     }
 }

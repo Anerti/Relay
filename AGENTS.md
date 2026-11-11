@@ -26,8 +26,9 @@ Relay is a Spring Boot REST API (users, JWT auth, direct messages, AI-agent conv
 - `app.jwt.secret`: Base64, at least 256 bits once decoded
 - `app.cors.allowed-origins`: comma-separated
 - `spring.jpa.hibernate.ddl-auto=validate`, `spring.jpa.open-in-view=false`
+- `spring.mail.username` (Gmail address), `spring.mail.password` (Gmail App Password, needs 2-Step Verification; the account password is rejected). Host, port and STARTTLS are in `application.properties`.
 
-Tests get Postgres, Redis and a random JWT secret from `TestcontainersConfig`; `src/test/resources/application.properties` holds the rest.
+Tests get Postgres, Redis, a Mailpit SMTP server and a random JWT secret from `TestcontainersConfig`; `src/test/resources/application.properties` holds the rest.
 
 ## Layout (`src/main/java/com/techindna/relay`)
 
