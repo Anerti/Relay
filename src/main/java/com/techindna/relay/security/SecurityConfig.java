@@ -36,7 +36,7 @@ public class SecurityConfig {
                                 session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(
                         auth ->
-                                auth.requestMatchers(HttpMethod.GET, "/syn")
+                                auth.requestMatchers(HttpMethod.GET, "/syn", "/geoip/{ip}")
                                         .permitAll()
                                         .dispatcherTypeMatchers(DispatcherType.ERROR)
                                         .permitAll()

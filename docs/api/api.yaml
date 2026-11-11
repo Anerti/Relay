@@ -2135,10 +2135,9 @@ paths:
       description: >-
         Looks up the given IPv4 or IPv6 address in MaxMind GeoLite2 City and ASN. Every
         field except ipAddress is null when MaxMind has no data for the address, for
-        example a private or reserved IP. This endpoint requires authentication.
+        example a private or reserved IP. This endpoint is public.
       tags: [GeoIP]
-      security:
-        - bearerAuth: []
+      security: []
       parameters:
         - name: ip
           in: path
@@ -2156,17 +2155,28 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/GeoIp'
-        '401':
-          $ref: '#/components/responses/Unauthorized'
-        '422':
+        '403':
+          description: >-
+            A bearer token was sent and it is bound to a different IP than the request's.
+            The endpoint needs no token; send none to avoid this.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+              example:
+                status: 403
+                error: FORBIDDEN
+                message: Cannot access this resource from the current IP address.
+                timestamp: 2026-07-20T15:00:00Z
+        '400':
           description: The path is not a valid IPv4 or IPv6 address
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorBody'
               example:
-                status: 422
-                error: UNPROCESSABLE CONTENT
+                status: 400
+                error: BAD REQUEST
                 message: IP address 999.0.0.1 is not valid
                 timestamp: 2026-07-20T15:00:00Z
 
@@ -2750,7 +2760,7 @@ components:
     GeoIp:
       description: MaxMind GeoLite2 City and ASN data for an IP; every field except ipAddress is null when MaxMind has no data for the address
       type: object
-      required: [ipAddress, network, continentCode, continent, countryCode, country, isInEuropeanUnion, registeredCountryCode, registeredCountry, representedCountryCode, representedCountry, subdivision1Code, subdivision1, subdivision2Code, subdivision2, city, postalCode, metroCode, timezone, latitude, longitude, accuracyRadius, isAnycast, autonomousSystemNumber, autonomousSystemOrganization]
+      required: [ipAddress, network, continentCode, continent, countryCode, country, registeredCountryCode, registeredCountry, subdivision1, subdivision2, city, postalCode, timezone, latitude, longitude, accuracyRadius, autonomousSystemNumber, autonomousSystemOrganization]
       properties:
         ipAddress:
           type: string
@@ -2777,10 +2787,6 @@ components:
           type: string
           nullable: true
           description: English name of the country where the address is located
-        isInEuropeanUnion:
-          type: boolean
-          nullable: true
-          description: Whether that country is a member of the European Union
         registeredCountryCode:
           type: string
           nullable: true
@@ -2791,28 +2797,10 @@ components:
           type: string
           nullable: true
           description: English name of the country where the ISP registered the network
-        representedCountryCode:
-          type: string
-          nullable: true
-          minLength: 2
-          maxLength: 2
-          description: ISO 3166-1 alpha-2 code of the country represented by users of the address, such as a military base abroad
-        representedCountry:
-          type: string
-          nullable: true
-          description: English name of the represented country
-        subdivision1Code:
-          type: string
-          nullable: true
-          description: ISO 3166-2 code of the largest subdivision (state, region or province)
         subdivision1:
           type: string
           nullable: true
           description: English name of the largest subdivision
-        subdivision2Code:
-          type: string
-          nullable: true
-          description: ISO 3166-2 code of the second-level subdivision
         subdivision2:
           type: string
           nullable: true
@@ -2824,10 +2812,6 @@ components:
         postalCode:
           type: string
           nullable: true
-        metroCode:
-          type: integer
-          nullable: true
-          description: US metro (DMA) code; null outside the United States
         timezone:
           type: string
           nullable: true
@@ -2846,12 +2830,9 @@ components:
           type: integer
           nullable: true
           description: Radius in kilometers around latitude and longitude where the address is likely located
-        isAnycast:
-          type: boolean
-          nullable: true
-          description: Whether the network is anycast, served from several locations
         autonomousSystemNumber:
           type: integer
+          format: int64
           nullable: true
           description: Number of the autonomous system that announces the address's network
         autonomousSystemOrganization:
@@ -2865,23 +2846,16 @@ components:
         continent: Europe
         countryCode: PT
         country: Portugal
-        isInEuropeanUnion: true
         registeredCountryCode: PT
         registeredCountry: Portugal
-        representedCountryCode: null
-        representedCountry: null
-        subdivision1Code: '11'
         subdivision1: Lisbon
-        subdivision2Code: null
         subdivision2: null
         city: Lisbon
         postalCode: 1000-001
-        metroCode: null
         timezone: Europe/Lisbon
         latitude: 38.7167
         longitude: -9.1333
         accuracyRadius: 20
-        isAnycast: false
         autonomousSystemNumber: 3243
         autonomousSystemOrganization: MEO - SERVICOS DE COMUNICACOES E MULTIMEDIA S.A.
 

@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Relay is a Spring Boot REST API (users, JWT auth, direct messages, AI-agent conversations, per-account host/event logs). Most of it is still specified, not built: `docs/api/api.yaml` is the contract, and only `GET /syn` is implemented so far.
+Relay is a Spring Boot REST API (users, JWT auth, direct messages, AI-agent conversations, per-account host/event logs). Most of it is still specified, not built: `docs/api/api.yaml` is the contract, and only `GET /syn` and `GET /geoip/{ip}` are implemented so far.
 
 ## Stack
 
@@ -38,7 +38,7 @@ Tests get Postgres, Redis, a Mailpit SMTP server and a random JWT secret from `T
 |---|---|
 | `controller` | REST controllers |
 | `entity` | Domain records returned by the API (`User`) and enums |
-| `repository` | Repositories; `GeoIpRepository` reads the `geoip` schema with `JdbcClient` |
+| `repository` | Repositories; `GeoIpRepository` reads the `geoip_app` schema with `JdbcClient` |
 | `repository/model` | JPA entities, prefixed `J` (`JUser`) |
 | `exception`, `exception/http` | `ErrorBody`, `GlobalExceptionHandler`, one exception per HTTP status |
 | `validator` | `DataValidator`: input normalization and validation |
@@ -48,12 +48,12 @@ Tests get Postgres, Redis, a Mailpit SMTP server and a random JWT secret from `T
 ## Conventions
 
 - **Schema changes go through Flyway** (`src/main/resources/db/migration/V<n>__<name>.sql`), never `ddl-auto`. Hibernate only validates. Never edit an applied migration; add a new one.
-- **GeoIP data** lives in a `geoip` schema reached through its own connection (`app.geoip.datasource.*`, bean qualified `geoip` in `GeoIpDataSourceConfig`; the main `spring.datasource` stays auto-configured), loaded from MaxMind GeoLite2 CSVs outside the app (not Flyway, not Hibernate) per https://dev.maxmind.com/geoip/importing-databases/postgresql/: `geoip2_network` (City blocks), `geoip2_location` (locale `en` is queried), and `geoip2_asn_network` (ASN blocks: `network`, `autonomous_system_number`, `autonomous_system_organization`). Relay only reads it, through `GeoIpRepository`; the `app.geoip.datasource` role needs `USAGE` on the schema and `SELECT` on its tables. `src/test/resources/geoip.sql` holds the expected table shapes and test rows; Testcontainers runs it at startup.
+- **GeoIP data** lives in a `geoip_app` schema reached through its own connection (`app.geoip.datasource.*`, bean qualified `geoip` in `GeoIpDataSourceConfig`; the main `spring.datasource` stays auto-configured), loaded from MaxMind GeoLite2 CSVs outside the app (not Flyway, not Hibernate) per https://dev.maxmind.com/geoip/importing-databases/postgresql/: `geoip2_network` (City blocks), `geoip2_location` (locale `en` is queried), and `geoip2_asn` (ASN blocks: `network`, `autonomous_system_number`, `autonomous_system_organization`). Relay only reads it, through `GeoIpRepository`; the `app.geoip.datasource` role needs `USAGE` on the schema and `SELECT` on its tables. `src/test/resources/geoip.sql` holds the expected table shapes and test rows; Testcontainers runs it at startup.
 - **Postgres enums** are named types in `relay_app`, mapped with `@JdbcTypeCode(SqlTypes.NAMED_ENUM)`. Adding a Java enum value needs a migration too.
 - **Entities vs domain**: JPA entities (`J*`) stay in `repository/model`; controllers return `entity` records, never JPA entities (`JUser` carries the password hash).
 - **Errors**: throw an `exception/http` exception; `GlobalExceptionHandler` turns it into `ErrorBody` JSON. Filters and security handlers write errors with `ErrorBody.send(...)`. Unknown exceptions become a generic 500, logged.
 - **Validation**: use `DataValidator`. Semantic problems are 422 (`UnprocessableContentException`), malformed requests and bad pagination are 400. Username and email are trimmed and lower-cased before checks and storage; uniqueness is case-insensitive in the DB.
-- **Auth**: stateless JWT in `Authorization: Bearer`. Claims: `sub` = user id, `role` (becomes `ROLE_<role>`), `ip_address`. `ABACRules.authorizeIpAddress` rejects a token used from a different IP with 403. Only `GET /syn` and error dispatches are public; open new public endpoints explicitly in `SecurityConfig`.
+- **Auth**: stateless JWT in `Authorization: Bearer`. Claims: `sub` = user id, `role` (becomes `ROLE_<role>`), `ip_address`. `ABACRules.authorizeIpAddress` rejects a token used from a different IP with 403. Only `GET /syn`, `GET /geoip/{ip}` and error dispatches are public; open new public endpoints explicitly in `SecurityConfig`.
 - **API contract**: implement endpoints to match `docs/api/api.yaml`. Update the spec in the same change when behavior differs.
 - **Tests**: integration tests extend `TestcontainersConfig`. Keep coverage at or above 85% or `check` fails.
 
