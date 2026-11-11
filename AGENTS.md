@@ -25,6 +25,7 @@ Relay is a Spring Boot REST API (users, JWT auth, direct messages, AI-agent conv
 - `spring.datasource.url`, `spring.datasource.username`, `spring.datasource.password`
 - `app.jwt.secret`: Base64, at least 256 bits once decoded
 - `app.cors.allowed-origins`: comma-separated
+- `app.geoip.datasource.jdbc-url`, `app.geoip.datasource.username`, `app.geoip.datasource.password`: the GeoIP connection (Hikari property names, hence `jdbc-url`)
 - `spring.data.redis.host`, `spring.data.redis.port`, `spring.data.redis.username`, `spring.data.redis.password`. Use these, not `spring.data.redis.url`: when a URL is set, Spring reads credentials only from the URL and ignores the username and password keys. Add `spring.data.redis.ssl.enabled=true` if the provider requires TLS. `spring.data.redis.timeout` (500ms) is set in `application.properties`.
 - `spring.jpa.hibernate.ddl-auto=validate`, `spring.jpa.open-in-view=false`
 - `spring.mail.username` (Gmail address), `spring.mail.password` (Gmail App Password, needs 2-Step Verification; the account password is rejected). Host, port and STARTTLS are in `application.properties`.
@@ -37,15 +38,17 @@ Tests get Postgres, Redis, a Mailpit SMTP server and a random JWT secret from `T
 |---|---|
 | `controller` | REST controllers |
 | `entity` | Domain records returned by the API (`User`) and enums |
+| `repository` | Repositories; `GeoIpRepository` reads the `geoip` schema with `JdbcClient` |
 | `repository/model` | JPA entities, prefixed `J` (`JUser`) |
 | `exception`, `exception/http` | `ErrorBody`, `GlobalExceptionHandler`, one exception per HTTP status |
 | `validator` | `DataValidator`: input normalization and validation |
 | `security`, `security/jwt` | Filter chain, JWT issue/verify, ABAC rules, client IP resolution |
-| `config` | CORS |
+| `config` | CORS, GeoIP datasource |
 
 ## Conventions
 
 - **Schema changes go through Flyway** (`src/main/resources/db/migration/V<n>__<name>.sql`), never `ddl-auto`. Hibernate only validates. Never edit an applied migration; add a new one.
+- **GeoIP data** lives in a `geoip` schema reached through its own connection (`app.geoip.datasource.*`, bean qualified `geoip` in `GeoIpDataSourceConfig`; the main `spring.datasource` stays auto-configured), loaded from MaxMind GeoLite2 CSVs outside the app (not Flyway, not Hibernate) per https://dev.maxmind.com/geoip/importing-databases/postgresql/: `geoip2_network` (City blocks), `geoip2_location` (locale `en` is queried), and `geoip2_asn_network` (ASN blocks: `network`, `autonomous_system_number`, `autonomous_system_organization`). Relay only reads it, through `GeoIpRepository`; the `app.geoip.datasource` role needs `USAGE` on the schema and `SELECT` on its tables. `src/test/resources/geoip.sql` holds the expected table shapes and test rows; Testcontainers runs it at startup.
 - **Postgres enums** are named types in `relay_app`, mapped with `@JdbcTypeCode(SqlTypes.NAMED_ENUM)`. Adding a Java enum value needs a migration too.
 - **Entities vs domain**: JPA entities (`J*`) stay in `repository/model`; controllers return `entity` records, never JPA entities (`JUser` carries the password hash).
 - **Errors**: throw an `exception/http` exception; `GlobalExceptionHandler` turns it into `ErrorBody` JSON. Filters and security handlers write errors with `ErrorBody.send(...)`. Unknown exceptions become a generic 500, logged.

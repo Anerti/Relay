@@ -6,7 +6,6 @@ plugins {
 }
 
 jacoco {
-    // 0.8.16 rather than the template's 0.8.14: this project compiles to Java 27 bytecode
     toolVersion = '0.8.16'
 }
 
