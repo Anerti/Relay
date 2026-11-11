@@ -25,6 +25,7 @@ Relay is a Spring Boot REST API (users, JWT auth, direct messages, AI-agent conv
 - `spring.datasource.url`, `spring.datasource.username`, `spring.datasource.password`
 - `app.jwt.secret`: Base64, at least 256 bits once decoded
 - `app.cors.allowed-origins`: comma-separated
+- `spring.data.redis.host`, `spring.data.redis.port`, `spring.data.redis.username`, `spring.data.redis.password`. Use these, not `spring.data.redis.url`: when a URL is set, Spring reads credentials only from the URL and ignores the username and password keys. Add `spring.data.redis.ssl.enabled=true` if the provider requires TLS. `spring.data.redis.timeout` (500ms) is set in `application.properties`.
 - `spring.jpa.hibernate.ddl-auto=validate`, `spring.jpa.open-in-view=false`
 - `spring.mail.username` (Gmail address), `spring.mail.password` (Gmail App Password, needs 2-Step Verification; the account password is rejected). Host, port and STARTTLS are in `application.properties`.
 
