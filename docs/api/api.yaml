@@ -30,7 +30,7 @@ paths:
     post:
       operationId: register
       summary: Register a new user account (pending verification)
-      description: Validates the registration data, saves the user with verified=false, generates a UUID verification token stored in Redis, and sends a verification link by email. Opening the link displays a confirmation page; the user must submit its form to POST /auth/mfa/confirm/register/{token} before logging in. The token expires after 15 minutes.
+      description: Validates the registration data, saves the user with verified=false, records the client's host (IP address) on the account with an info event log, generates a UUID verification token stored in Redis, and sends a verification link by email. Opening the link displays a confirmation page; the user must submit its form to POST /auth/mfa/confirm/register/{token} before logging in. The token expires after 15 minutes.
       tags: [Auth]
       requestBody:
         required: true
@@ -60,6 +60,17 @@ paths:
                 status: 400
                 error: BAD REQUEST
                 message: Request body is missing or malformed.
+                timestamp: 2026-07-20T15:00:00Z
+        '415':
+          description: Content-Type is not application/json
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+              example:
+                status: 415
+                error: UNSUPPORTED MEDIA TYPE
+                message: Unsupported content type.
                 timestamp: 2026-07-20T15:00:00Z
         '422':
           description: Validation failure
@@ -91,6 +102,19 @@ paths:
                     error: CONFLICT
                     message: You cannot use this email address
                     timestamp: 2026-07-20T15:00:00Z
+        '403':
+          description: >-
+            A bearer token was sent and it is bound to a different IP than the request's.
+            The endpoint needs no token; send none to avoid this.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+              example:
+                status: 403
+                error: FORBIDDEN
+                message: Cannot access this resource from the current IP address.
+                timestamp: 2026-07-20T15:00:00Z
         '500':
           description: Failed to send verification email or another unexpected server error
           content:
@@ -1859,7 +1883,7 @@ paths:
       operationId: listHosts
       summary: List the hosts that accessed a user's account
       description: >-
-        Returns the hosts (client IP addresses) recorded when signing in to the user's
+        Returns the hosts (client IP addresses) recorded when registering or signing in to the user's
         account, most recently seen first. A superuser may list the hosts of a guest
         account or their own; a guest may list only their own. This endpoint requires
         authentication.
@@ -2310,11 +2334,14 @@ components:
         username:
           type: string
           maxLength: 50
+          pattern: "^[a-zA-Z0-9_-]{2,}$"
+          description: Letters, digits, underscores, and hyphens only; trimmed and lower-cased before storage, unique ignoring case
         password:
           type: string
           minLength: 12
           maxLength: 255
           writeOnly: true
+          description: Must contain an uppercase letter, a lowercase letter, a digit, and a special character; must not contain line breaks or other control characters
         confirmPassword:
           type: string
           writeOnly: true
@@ -2322,13 +2349,18 @@ components:
         firstName:
           type: string
           maxLength: 100
+          pattern: '^[\p{L}\p{M}]+([ ''’-][\p{L}\p{M}]+)*$'
+          description: Letters in any script, with single spaces, apostrophes, or hyphens between words; surrounding whitespace is trimmed
         lastName:
           type: string
           maxLength: 100
+          pattern: '^[\p{L}\p{M}]+([ ''’-][\p{L}\p{M}]+)*$'
+          description: Letters in any script, with single spaces, apostrophes, or hyphens between words; surrounding whitespace is trimmed
         email:
           type: string
           format: email
           maxLength: 100
+          description: Trimmed and lower-cased before storage, unique ignoring case
       example:
         username: jdoe
         password: s3cur3P@ssw0rd!
@@ -2698,7 +2730,7 @@ components:
         lastSeenAt:
           type: string
           format: date-time
-          description: Last time this host signed in to the account
+          description: Last time this host registered or signed in to the account
         updatedAt:
           type: string
           format: date-time
@@ -2723,7 +2755,7 @@ components:
     # ── Event logs ──
     EventLogSeverity:
       type: string
-      enum: [info, warning, critical]
+      enum: [info, low, medium, high, critical]
 
     EventLog:
       type: object
@@ -2752,7 +2784,7 @@ components:
         id: d0e1f2a3-b4c5-6789-3456-890123456789
         hostId: c9d0e1f2-a3b4-5678-2345-789012345678
         userAgent: Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0
-        severity: warning
+        severity: medium
         description: Failed sign-in attempt
         createdAt: 2026-07-20T14:00:00Z
 

@@ -38,8 +38,7 @@ out/
 .env.*
 
 ### Obsidian ###
-docs/.obsidian/workspace*.json
-docs/.obsidian/cache/
+.obsidian/
 
 ### VS Code ###
 .vscode/
