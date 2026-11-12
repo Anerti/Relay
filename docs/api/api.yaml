@@ -91,6 +91,19 @@ paths:
                     error: CONFLICT
                     message: You cannot use this email address
                     timestamp: 2026-07-20T15:00:00Z
+        '403':
+          description: >-
+            A bearer token was sent and it is bound to a different IP than the request's.
+            The endpoint needs no token; send none to avoid this.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+              example:
+                status: 403
+                error: FORBIDDEN
+                message: Cannot access this resource from the current IP address.
+                timestamp: 2026-07-20T15:00:00Z
         '500':
           description: Failed to send verification email or another unexpected server error
           content:
@@ -2310,11 +2323,14 @@ components:
         username:
           type: string
           maxLength: 50
+          pattern: "^[a-zA-Z0-9_-]{2,}$"
+          description: Letters, digits, underscores, and hyphens only; trimmed and lower-cased before storage, unique ignoring case
         password:
           type: string
           minLength: 12
           maxLength: 255
           writeOnly: true
+          description: Must contain an uppercase letter, a lowercase letter, a digit, and a special character
         confirmPassword:
           type: string
           writeOnly: true
@@ -2322,13 +2338,18 @@ components:
         firstName:
           type: string
           maxLength: 100
+          pattern: '^[\p{L}\p{M}]+([ ''’-][\p{L}\p{M}]+)*$'
+          description: Letters in any script, with single spaces, apostrophes, or hyphens between words; surrounding whitespace is trimmed
         lastName:
           type: string
           maxLength: 100
+          pattern: '^[\p{L}\p{M}]+([ ''’-][\p{L}\p{M}]+)*$'
+          description: Letters in any script, with single spaces, apostrophes, or hyphens between words; surrounding whitespace is trimmed
         email:
           type: string
           format: email
           maxLength: 100
+          description: Trimmed and lower-cased before storage, unique ignoring case
       example:
         username: jdoe
         password: s3cur3P@ssw0rd!

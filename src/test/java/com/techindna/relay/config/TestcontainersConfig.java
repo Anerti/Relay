@@ -46,4 +46,8 @@ public abstract class TestcontainersConfig {
         registry.add("spring.mail.host", MAILPIT::getHost);
         registry.add("spring.mail.port", () -> MAILPIT.getMappedPort(1025));
     }
+
+    protected static String mailpitApiUrl() {
+        return "http://" + MAILPIT.getHost() + ":" + MAILPIT.getMappedPort(8025) + "/api/v1";
+    }
 }
