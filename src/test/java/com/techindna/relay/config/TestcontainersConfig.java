@@ -14,15 +14,21 @@ public abstract class TestcontainersConfig {
             Base64.getEncoder().encodeToString(new SecureRandom().generateSeed(48));
     
     private static final PostgreSQLContainer POSTGRES =
-            new PostgreSQLContainer(DockerImageName.parse("postgres:16-alpine"));
+            new PostgreSQLContainer(DockerImageName.parse("postgres:16-alpine"))
+                    .withInitScript("geoip.sql");
 
     private static final GenericContainer<?> REDIS =
             new GenericContainer<>(DockerImageName.parse("redis:7-alpine"))
                     .withExposedPorts(6379);
 
+    private static final GenericContainer<?> MAILPIT =
+            new GenericContainer<>(DockerImageName.parse("axllent/mailpit:v1.27"))
+                    .withExposedPorts(1025, 8025);
+
     static {
         POSTGRES.start();
         REDIS.start();
+        MAILPIT.start();
     }
 
     @DynamicPropertySource
@@ -31,8 +37,13 @@ public abstract class TestcontainersConfig {
         registry.add("spring.datasource.url", POSTGRES::getJdbcUrl);
         registry.add("spring.datasource.username", POSTGRES::getUsername);
         registry.add("spring.datasource.password", POSTGRES::getPassword);
+        registry.add("app.geoip.datasource.jdbc-url", POSTGRES::getJdbcUrl);
+        registry.add("app.geoip.datasource.username", POSTGRES::getUsername);
+        registry.add("app.geoip.datasource.password", POSTGRES::getPassword);
         registry.add(
                 "spring.data.redis.url",
                 () -> "redis://" + REDIS.getHost() + ":" + REDIS.getMappedPort(6379));
+        registry.add("spring.mail.host", MAILPIT::getHost);
+        registry.add("spring.mail.port", () -> MAILPIT.getMappedPort(1025));
     }
 }
