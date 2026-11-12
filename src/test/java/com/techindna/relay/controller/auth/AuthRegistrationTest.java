@@ -8,9 +8,16 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.techindna.relay.config.TestcontainersConfig;
+import com.techindna.relay.entity.enums.EventLogSeverity;
+import com.techindna.relay.entity.enums.HostStatus;
+import com.techindna.relay.repository.EventLogRepository;
+import com.techindna.relay.repository.HostRepository;
 import com.techindna.relay.repository.UserRepository;
+import com.techindna.relay.repository.model.JEventLog;
+import com.techindna.relay.repository.model.JHost;
 import com.techindna.relay.repository.model.JUser;
 import com.techindna.relay.service.mail.EmailService;
+import java.net.InetAddress;
 import java.util.HashMap;
 import java.util.Map;
 import org.junit.jupiter.api.BeforeEach;
@@ -19,6 +26,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.mail.MailSendException;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
@@ -43,6 +51,12 @@ class AuthRegistrationTest extends TestcontainersConfig {
     private UserRepository userRepository;
 
     @Autowired
+    private HostRepository hostRepository;
+
+    @Autowired
+    private EventLogRepository eventLogRepository;
+
+    @Autowired
     private StringRedisTemplate redis;
 
     @MockitoSpyBean
@@ -50,6 +64,8 @@ class AuthRegistrationTest extends TestcontainersConfig {
 
     @BeforeEach
     void clean() {
+        eventLogRepository.deleteAll();
+        hostRepository.deleteAll();
         userRepository.deleteAll();
         redis.delete(redis.keys(TOKEN_PREFIX + "*"));
     }
@@ -77,6 +93,15 @@ class AuthRegistrationTest extends TestcontainersConfig {
                 "Lisbon",
                 "Europe/Lisbon",
                 "MEO - SERVICOS DE COMUNICACOES E MULTIMEDIA S.A.");
+
+        JHost host = hostRepository.findByUserAndIpAddress(user, InetAddress.ofLiteral("203.0.113.42")).orElseThrow();
+        assertThat(host.getStatus()).isEqualTo(HostStatus.AUTHORIZED);
+
+        JEventLog event = eventLogRepository.findAll().getFirst();
+        assertThat(event.getHost().getId()).isEqualTo(host.getId());
+        assertThat(event.getSeverity()).isEqualTo(EventLogSeverity.INFO);
+        assertThat(event.getDescription()).isEqualTo("[REGISTRATION]: Account registered");
+        assertThat(event.getUserAgent()).isEqualTo("AuthRegistrationTest");
     }
 
     @Test
@@ -218,6 +243,8 @@ class AuthRegistrationTest extends TestcontainersConfig {
                 .andExpect(jsonPath("$.message").value("Something went wrong, please try again later"));
 
         assertThat(userRepository.count()).isZero();
+        assertThat(hostRepository.count()).isZero();
+        assertThat(eventLogRepository.count()).isZero();
         assertThat(redis.keys(TOKEN_PREFIX + "*")).isEmpty();
     }
 
@@ -235,6 +262,7 @@ class AuthRegistrationTest extends TestcontainersConfig {
                     request.setRemoteAddr("203.0.113.42");
                     return request;
                 })
+                .header(HttpHeaders.USER_AGENT, "AuthRegistrationTest")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(body));
     }

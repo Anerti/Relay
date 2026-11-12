@@ -2,9 +2,12 @@ package com.techindna.relay.service.auth;
 
 import com.techindna.relay.dto.MessageBody;
 import com.techindna.relay.dto.RegisterInput;
+import com.techindna.relay.entity.enums.EventLogSeverity;
 import com.techindna.relay.exception.http.ConflictException;
 import com.techindna.relay.repository.UserRepository;
+import com.techindna.relay.repository.model.JHost;
 import com.techindna.relay.repository.model.JUser;
+import com.techindna.relay.service.event.HostEventService;
 import com.techindna.relay.service.event.auth.VerificationEmailService;
 import com.techindna.relay.service.mapper.UserMapper;
 import com.techindna.relay.validator.AuthValidator;
@@ -25,6 +28,7 @@ public class RegistrationService {
     private final AuthValidator authValidator;
     private final UserMapper userMapper;
     private final UserRepository userRepository;
+    private final HostEventService hostEventService;
     private final VerificationEmailService verificationEmailService;
 
     @Transactional
@@ -44,6 +48,9 @@ public class RegistrationService {
             }
             throw e;
         }
+
+        JHost host = hostEventService.recordHost(user, request);
+        hostEventService.logEvent(host, EventLogSeverity.INFO, "[REGISTRATION]: Account registered", request);
 
         verificationEmailService.sendRegistrationVerification(user, request);
 

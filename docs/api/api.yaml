@@ -30,7 +30,7 @@ paths:
     post:
       operationId: register
       summary: Register a new user account (pending verification)
-      description: Validates the registration data, saves the user with verified=false, generates a UUID verification token stored in Redis, and sends a verification link by email. Opening the link displays a confirmation page; the user must submit its form to POST /auth/mfa/confirm/register/{token} before logging in. The token expires after 15 minutes.
+      description: Validates the registration data, saves the user with verified=false, records the client's host (IP address) on the account with an info event log, generates a UUID verification token stored in Redis, and sends a verification link by email. Opening the link displays a confirmation page; the user must submit its form to POST /auth/mfa/confirm/register/{token} before logging in. The token expires after 15 minutes.
       tags: [Auth]
       requestBody:
         required: true
@@ -1872,7 +1872,7 @@ paths:
       operationId: listHosts
       summary: List the hosts that accessed a user's account
       description: >-
-        Returns the hosts (client IP addresses) recorded when signing in to the user's
+        Returns the hosts (client IP addresses) recorded when registering or signing in to the user's
         account, most recently seen first. A superuser may list the hosts of a guest
         account or their own; a guest may list only their own. This endpoint requires
         authentication.
@@ -2719,7 +2719,7 @@ components:
         lastSeenAt:
           type: string
           format: date-time
-          description: Last time this host signed in to the account
+          description: Last time this host registered or signed in to the account
         updatedAt:
           type: string
           format: date-time

@@ -41,7 +41,7 @@ Tests get Postgres, Redis, a Mailpit SMTP server and a random JWT secret from `T
 | `controller` | REST controllers |
 | `dto` | Request and response bodies named after their spec schemas (`RegisterInput`, `MessageBody`) |
 | `entity` | Domain records returned by the API (`User`) and enums; `entity/email` holds `EmailDetails` and `EmailTemplate` |
-| `service` | Business logic and transactions: `auth`, `mail`, `redis`, `mapper`, `event/auth` (emails sent by auth flows), `enums` |
+| `service` | Business logic and transactions: `auth`, `mail`, `redis`, `mapper`, `event` (`HostEventService`: hosts and event logs), `event/auth` (emails sent by auth flows), `enums` |
 | `repository` | Repositories; `GeoIpRepository` reads the `geoip_app` schema with `JdbcClient` |
 | `repository/model` | JPA entities, prefixed `J` (`JUser`) |
 | `exception`, `exception/http` | `ErrorBody`, `GlobalExceptionHandler`, one exception per HTTP status |
@@ -59,6 +59,7 @@ Tests get Postgres, Redis, a Mailpit SMTP server and a random JWT secret from `T
 - **Validation**: use `DataValidator`. Semantic problems are 422 (`UnprocessableContentException`), malformed requests and bad pagination are 400. Username and email are trimmed and lower-cased before checks and storage; uniqueness is case-insensitive in the DB.
 - **Auth**: stateless JWT in `Authorization: Bearer`. Claims: `sub` = user id, `role` (becomes `ROLE_<role>`), `ip_address`. `ABACRules.authorizeIpAddress` rejects a token used from a different IP with 403. Only `GET /syn`, `GET /geoip/{ip}`, `POST /auth/register` and error dispatches are public; open new public endpoints explicitly in `SecurityConfig`.
 - **Registration and verification mail**: `POST /auth/register` validates the whole body before hashing, saves the user with `verified=false`, stores a 15-minute token in Redis (`auth:verification:<uuid>` = `<VerificationFlow>:<userId>`), and sends the email synchronously inside the transaction. On any mail failure, delete the token and rethrow so the user insert rolls back and the client gets a 500. Duplicates are told apart by constraint name (`user_username_lower_key`, `user_email_lower_key`), never by the DB message, which embeds user input. Links are `app.base-url` + `/auth/verify/<token>`. The email shows the client IP's GeoIP details (continent, country, city, timezone, coordinates, accuracy radius, AS organization) from `GeoIpRepository`; a failed lookup is logged and those rows show `N/A`, it never fails the registration.
+- **Hosts and event logs**: `HostEventService.recordHost` finds or creates the caller's host for (user, client IP) and sets `lastSeenAt`; `logEvent` writes an event log with the user agent (`Unknown` if missing, cut to 512 chars). Call both inside the flow's transaction so they roll back with it. `POST /auth/register` records the host and an `INFO` "Account registered" event before sending the email.
 - **API contract**: implement endpoints to match `docs/api/api.yaml`. Update the spec in the same change when behavior differs.
 - **Tests**: integration tests extend `TestcontainersConfig`. Keep coverage at or above 85% or `check` fails.
 

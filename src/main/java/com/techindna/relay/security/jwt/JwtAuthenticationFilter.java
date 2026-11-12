@@ -2,10 +2,10 @@ package com.techindna.relay.security.jwt;
 
 import static java.util.List.of;
 
+import com.techindna.relay.config.ClientDataConfig;
 import com.techindna.relay.exception.ErrorBody;
 import com.techindna.relay.exception.http.ForbiddenException;
 import com.techindna.relay.security.ABACRules;
-import com.techindna.relay.security.ClientIpAddressResolver;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import jakarta.annotation.Nonnull;
@@ -26,12 +26,12 @@ import org.springframework.web.filter.OncePerRequestFilter;
 public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider tokenProvider;
-    private final ClientIpAddressResolver clientIpAddressResolver;
+    private final ClientDataConfig clientDataConfig;
 
     public JwtAuthenticationFilter(
-            JwtTokenProvider tokenProvider, ClientIpAddressResolver clientIpAddressResolver) {
+            JwtTokenProvider tokenProvider, ClientDataConfig clientDataConfig) {
         this.tokenProvider = tokenProvider;
-        this.clientIpAddressResolver = clientIpAddressResolver;
+        this.clientDataConfig = clientDataConfig;
     }
 
     @Override
@@ -48,7 +48,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 String userId = claims.getSubject();
                 String role = claims.get("role", String.class);
                 String tokenIpAddress = claims.get("ip_address", String.class);
-                String requestIpAddress = clientIpAddressResolver.resolve(request);
+                String requestIpAddress = clientDataConfig.ipAddress(request);
 
                 ABACRules.authorizeIpAddress(tokenIpAddress, requestIpAddress);
 
