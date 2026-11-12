@@ -28,12 +28,12 @@ public class HostEventService {
                 .orElseGet(() -> JHost.builder().user(user).ipAddress(ipAddress).build());
         host.setLastSeenAt(Instant.now());
 
-        return hostRepository.save(host);
+        return hostRepository.saveAndFlush(host);
     }
 
     public void logEvent(
             JHost host, EventLogSeverity severity, String description, HttpServletRequest request) {
-        eventLogRepository.save(JEventLog.builder()
+        eventLogRepository.saveAndFlush(JEventLog.builder()
                 .host(host)
                 .userAgent(clientDataConfig.userAgent(request))
                 .severity(severity)

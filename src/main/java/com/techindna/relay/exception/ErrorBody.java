@@ -4,6 +4,7 @@ import com.fasterxml.jackson.annotation.JsonInclude;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.time.Instant;
+import java.util.Locale;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Getter;
@@ -39,7 +40,7 @@ public class ErrorBody {
                 response.getWriter(),
                 ErrorBody.builder()
                         .status(status.value())
-                        .error(status.getReasonPhrase().toUpperCase())
+                        .error(status.getReasonPhrase().toUpperCase(Locale.ROOT))
                         .message(message)
                         .build());
     }

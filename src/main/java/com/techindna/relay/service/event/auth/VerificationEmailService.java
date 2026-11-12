@@ -42,7 +42,11 @@ public class VerificationEmailService {
                     "Verify your account",
                     variables));
         } catch (RuntimeException e) {
-            verificationTokenService.delete(token);
+            try {
+                verificationTokenService.delete(token);
+            } catch (RuntimeException deleteFailure) {
+                e.addSuppressed(deleteFailure);
+            }
             throw e;
         }
     }

@@ -1,12 +1,14 @@
 package com.techindna.relay.exception;
 
 import com.techindna.relay.exception.http.*;
+import java.util.Locale;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.TypeMismatchException;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.bind.MissingPathVariableException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -20,7 +22,7 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(status)
                 .body(
                         ErrorBody.builder()
-                                .error(status.getReasonPhrase().toUpperCase())
+                                .error(status.getReasonPhrase().toUpperCase(Locale.ROOT))
                                 .message(message)
                                 .status(status.value())
                                 .build());
@@ -62,6 +64,11 @@ public class GlobalExceptionHandler {
     public ResponseEntity<ErrorBody> handleHttpMessageNotReadable() {
         return buildResponse(HttpStatus.BAD_REQUEST,
                 "Request body is missing or malformed.");
+    }
+
+    @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+    public ResponseEntity<ErrorBody> handleUnsupportedMediaType() {
+        return buildResponse(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "Unsupported content type.");
     }
 
     @ExceptionHandler(ConflictException.class)

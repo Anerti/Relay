@@ -2,6 +2,7 @@ package com.techindna.relay.controller.auth;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
@@ -18,8 +19,12 @@ import com.techindna.relay.repository.model.JHost;
 import com.techindna.relay.repository.model.JUser;
 import com.techindna.relay.service.mail.EmailService;
 import java.net.InetAddress;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
+import java.util.Locale;
 import java.util.Map;
+import javax.sql.DataSource;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -28,6 +33,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mail.MailSendException;
 import org.springframework.test.context.bean.override.mockito.MockitoSpyBean;
 import org.springframework.test.web.servlet.MockMvc;
@@ -58,6 +64,9 @@ class AuthRegistrationTest extends TestcontainersConfig {
 
     @Autowired
     private StringRedisTemplate redis;
+
+    @Autowired
+    private DataSource dataSource;
 
     @MockitoSpyBean
     private EmailService emailService;
@@ -155,6 +164,11 @@ class AuthRegistrationTest extends TestcontainersConfig {
     }
 
     @Test
+    void passwordWithLineBreakIsUnprocessable() throws Exception {
+        assertUnprocessable("password", "Strong\nPassword1!", "Password must not contain line breaks or control characters");
+    }
+
+    @Test
     void blankConfirmPasswordIsUnprocessable() throws Exception {
         assertUnprocessable("confirmPassword", "", "confirmPassword is required and cannot be blank");
     }
@@ -232,6 +246,45 @@ class AuthRegistrationTest extends TestcontainersConfig {
         register("{")
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message").value("Request body is missing or malformed."));
+    }
+
+    @Test
+    void unsupportedContentTypeIsUnsupportedMediaType() throws Exception {
+        mockMvc.perform(post("/auth/register").contentType(MediaType.TEXT_PLAIN).content(body(Map.of())))
+                .andExpect(status().isUnsupportedMediaType())
+                .andExpect(jsonPath("$.message").value("Unsupported content type."));
+
+        assertThat(userRepository.count()).isZero();
+    }
+
+    @Test
+    void conflictErrorDoesNotDependOnDefaultLocale() throws Exception {
+        register(body(Map.of()));
+
+        Locale defaultLocale = Locale.getDefault();
+        Locale.setDefault(Locale.forLanguageTag("tr"));
+        try {
+            register(body(Map.of("email", "other@example.com")))
+                    .andExpect(status().isConflict())
+                    .andExpect(jsonPath("$.error").value("CONFLICT"));
+        } finally {
+            Locale.setDefault(defaultLocale);
+        }
+    }
+
+    @Test
+    void hostAndEventAreSavedBeforeEmailIsSent() throws Exception {
+        JdbcTemplate jdbc = new JdbcTemplate(dataSource);
+        List<Long> countsAtSend = new ArrayList<>();
+        doAnswer(invocation -> {
+            countsAtSend.add(jdbc.queryForObject("SELECT count(*) FROM relay_app.host", Long.class));
+            countsAtSend.add(jdbc.queryForObject("SELECT count(*) FROM relay_app.event_log", Long.class));
+            return invocation.callRealMethod();
+        }).when(emailService).sendMail(any());
+
+        register(body(Map.of())).andExpect(status().isAccepted());
+
+        assertThat(countsAtSend).containsExactly(1L, 1L);
     }
 
     @Test

@@ -19,6 +19,11 @@ public class DataValidator {
     private static final Pattern NAME_FORMAT = Pattern.compile("^[\\p{L}\\p{M}]+([ '’-][\\p{L}\\p{M}]+)*$");
     private static final Pattern USERNAME_FORMAT = Pattern.compile("^[a-zA-Z_0-9-]{2,}$");
     private static final Pattern SEARCH_FORMAT = Pattern.compile("^[0-9a-zA-Z.@_\\- éèê]*$");
+    private static final Pattern UPPERCASE = Pattern.compile("[A-Z]");
+    private static final Pattern LOWERCASE = Pattern.compile("[a-z]");
+    private static final Pattern DIGIT = Pattern.compile("[0-9]");
+    private static final Pattern SPECIAL_CHARACTER = Pattern.compile("[!?*+=@#$%^&()_\\-\\[\\]{}|\\\\:;\"'<>,./`~]");
+    private static final Pattern CONTROL_CHARACTER = Pattern.compile("\\p{Cntrl}");
 
     public void checkNullData(String field, String value) {
         if (value == null || value.isBlank()) {
@@ -95,20 +100,24 @@ public class DataValidator {
             throw new UnprocessableContentException(label + " must be at least 12 characters");
         }
 
-        if (!password.matches(".*[A-Z].*")) {
+        if (!UPPERCASE.matcher(password).find()) {
             throw new UnprocessableContentException(label + " must contain at least one uppercase character");
         }
 
-        if (!password.matches(".*[a-z].*")) {
+        if (!LOWERCASE.matcher(password).find()) {
             throw new UnprocessableContentException(label + " must contain at least one lowercase character");
         }
 
-        if (!password.matches(".*[0-9].*")) {
+        if (!DIGIT.matcher(password).find()) {
             throw new UnprocessableContentException(label + " must contain at least one digit");
         }
 
-        if (!password.matches(".*[!?*+=@#$%^&()_\\-\\[\\]{}|\\\\:;\"'<>,./`~].*")) {
+        if (!SPECIAL_CHARACTER.matcher(password).find()) {
             throw new UnprocessableContentException(label + " must contain at least one special character");
+        }
+
+        if (CONTROL_CHARACTER.matcher(password).find()) {
+            throw new UnprocessableContentException(label + " must not contain line breaks or control characters");
         }
     }
 }

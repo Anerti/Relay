@@ -61,6 +61,17 @@ paths:
                 error: BAD REQUEST
                 message: Request body is missing or malformed.
                 timestamp: 2026-07-20T15:00:00Z
+        '415':
+          description: Content-Type is not application/json
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+              example:
+                status: 415
+                error: UNSUPPORTED MEDIA TYPE
+                message: Unsupported content type.
+                timestamp: 2026-07-20T15:00:00Z
         '422':
           description: Validation failure
           content:
@@ -2330,7 +2341,7 @@ components:
           minLength: 12
           maxLength: 255
           writeOnly: true
-          description: Must contain an uppercase letter, a lowercase letter, a digit, and a special character
+          description: Must contain an uppercase letter, a lowercase letter, a digit, and a special character; must not contain line breaks or other control characters
         confirmPassword:
           type: string
           writeOnly: true
