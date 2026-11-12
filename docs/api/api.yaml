@@ -2744,7 +2744,7 @@ components:
     # ── Event logs ──
     EventLogSeverity:
       type: string
-      enum: [info, warning, critical]
+      enum: [info, low, medium, high, critical]
 
     EventLog:
       type: object
@@ -2773,7 +2773,7 @@ components:
         id: d0e1f2a3-b4c5-6789-3456-890123456789
         hostId: c9d0e1f2-a3b4-5678-2345-789012345678
         userAgent: Mozilla/5.0 (X11; Linux x86_64; rv:128.0) Gecko/20100101 Firefox/128.0
-        severity: warning
+        severity: medium
         description: Failed sign-in attempt
         createdAt: 2026-07-20T14:00:00Z
 

@@ -5,7 +5,7 @@
 		{"id":"cf80e2b75e1bf745","type":"text","text":"## user_agent_conversation","x":-120,"y":179,"width":332,"height":60},
 		{"id":"ffd27e24ce572d47","type":"text","text":"## user_host","x":840,"y":1125,"width":170,"height":60},
 		{"id":"f64340cb17dbb1bb","type":"text","text":"## host_event_log","x":2200,"y":1125,"width":215,"height":60},
-		{"id":"6160d4a68b600382","type":"text","text":"# event_log\n\n- `id uuid pk default gen_random_uuid()`\n- `host_id uuid fk references host(id) on delete set null`\n- `user_agent varchar(512) not null`\n- `severity enum(info, warning, critical) not null`\n- `description varchar(100)`\n- `created_at timestamptz not null default now()`\n","x":2680,"y":900,"width":660,"height":510},
+		{"id":"6160d4a68b600382","type":"text","text":"# event_log\n\n- `id uuid pk default gen_random_uuid()`\n- `host_id uuid fk references host(id) on delete set null`\n- `user_agent varchar(512) not null`\n- `severity enum(info, low, medium, high, critical) not null`\n- `description varchar(100)`\n- `created_at timestamptz not null default now()`\n","x":2680,"y":900,"width":660,"height":510},
 		{"id":"78d81f6788d07dc1","type":"text","text":"## message_user","x":-1085,"y":1125,"width":250,"height":60},
 		{"id":"2e7926e0f2384a22","type":"text","text":"# conversation\n\n- `id uuid pk default gen_random_uuid()`\n- `title varchar(100)`\n- `user_id uuid fk references user(id) on delete cascade`\n- `created_at timestamptz not null default now()`\n- `updated_at timestamptz`\n","x":-1350,"y":-31,"width":780,"height":480},
 		{"id":"9b8e584c62761457","type":"text","text":"## conversation_agent_message","x":-1150,"y":-260,"width":380,"height":50},
