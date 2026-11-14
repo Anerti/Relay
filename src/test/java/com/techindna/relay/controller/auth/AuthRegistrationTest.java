@@ -301,6 +301,14 @@ class AuthRegistrationTest extends TestcontainersConfig {
         assertThat(redis.keys(TOKEN_PREFIX + "*")).isEmpty();
     }
 
+    @Test
+    void failedGeoIpLookupShowsNotAvailable() throws Exception {
+        register(body(Map.of()), "198.51.100.7").andExpect(status().isAccepted());
+
+        assertThat(latestEmail()).contains("198.51.100.7", "N/A");
+        assertThat(userRepository.count()).isOne();
+    }
+
     private void assertUnprocessable(String field, String value, String message) throws Exception {
         register(body(Map.of(field, value)))
                 .andExpect(status().isUnprocessableContent())
@@ -310,9 +318,13 @@ class AuthRegistrationTest extends TestcontainersConfig {
     }
 
     private ResultActions register(String body) throws Exception {
+        return register(body, "203.0.113.42");
+    }
+
+    private ResultActions register(String body, String ipAddress) throws Exception {
         return mockMvc.perform(post("/auth/register")
                 .with(request -> {
-                    request.setRemoteAddr("203.0.113.42");
+                    request.setRemoteAddr(ipAddress);
                     return request;
                 })
                 .header(HttpHeaders.USER_AGENT, "AuthRegistrationTest")
