@@ -608,6 +608,9 @@ paths:
         Displays a confirmation page without consuming the token or changing account state.
         The user must submit the form to the confirmation endpoint for the flow:
         POST /auth/mfa/confirm/register/{token} or POST /auth/mfa/confirm/login/{token}.
+        Only the registration flow exists so far, so the form always targets
+        POST /auth/mfa/confirm/register/{token}. The token is not validated here: an unknown,
+        expired or malformed token still gets the page, and the confirmation endpoint answers 401.
       tags: [MFA]
       parameters:
         - name: token
@@ -623,10 +626,34 @@ paths:
           $ref: '#/components/responses/TooManyRequests'
         '200':
           description: Confirmation page
+          headers:
+            Cache-Control:
+              description: Keeps the token-bearing page out of caches
+              schema:
+                type: string
+                example: no-store
+            Referrer-Policy:
+              description: Keeps the token out of the Referer header
+              schema:
+                type: string
+                example: no-referrer
           content:
             text/html:
               schema:
                 type: string
+        '403':
+          description: >-
+            A bearer token was sent and it is bound to a different IP than the request's.
+            The endpoint needs no token; send none to avoid this.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+              example:
+                status: 403
+                error: FORBIDDEN
+                message: Cannot access this resource from the current IP address.
+                timestamp: 2026-07-20T15:00:00Z
 
   /auth/mfa/confirm/register/{token}:
     post:

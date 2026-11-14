@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Relay is a Spring Boot REST API (users, JWT auth, direct messages, AI-agent conversations, per-account host/event logs). Most of it is still specified, not built: `docs/api/api.yaml` is the contract, and only `GET /syn` and `POST /auth/register` are implemented so far.
+Relay is a Spring Boot REST API (users, JWT auth, direct messages, AI-agent conversations, per-account host/event logs). Most of it is still specified, not built: `docs/api/api.yaml` is the contract, and only `GET /syn`, `POST /auth/register` and `GET /auth/verify/{token}` are implemented so far.
 
 ## Stack
 
@@ -9,7 +9,7 @@ Relay is a Spring Boot REST API (users, JWT auth, direct messages, AI-agent conv
 - PostgreSQL (schema `relay_app`), Redis
 - jjwt 0.12 (HMAC), Argon2 password hashing (Bouncy Castle)
 - Jackson 3 (`tools.jackson.*`), Lombok
-- Spring Mail with Thymeleaf HTML templates (`src/main/resources/templates/mail`)
+- Spring Mail with Thymeleaf HTML templates (`src/main/resources/templates/mail`); server-rendered pages in `templates/auth`
 
 ## Commands
 
@@ -57,8 +57,9 @@ Tests get Postgres, Redis, a Mailpit SMTP server, a stub GeoIP server and a rand
 - **Entities vs domain**: JPA entities (`J*`) stay in `repository/model`; controllers return `entity` records, never JPA entities (`JUser` carries the password hash).
 - **Errors**: throw an `exception/http` exception; `GlobalExceptionHandler` turns it into `ErrorBody` JSON. Filters and security handlers write errors with `ErrorBody.send(...)`. Unknown exceptions become a generic 500, logged.
 - **Validation**: use `DataValidator`. Semantic problems are 422 (`UnprocessableContentException`), malformed requests and bad pagination are 400. Username and email are trimmed and lower-cased before checks and storage; uniqueness is case-insensitive in the DB.
-- **Auth**: stateless JWT in `Authorization: Bearer`. Claims: `sub` = user id, `role` (becomes `ROLE_<role>`), `ip_address`. `ABACRules.authorizeIpAddress` rejects a token used from a different IP with 403. Only `GET /syn`, `POST /auth/register` and error dispatches are public; open new public endpoints explicitly in `SecurityConfig`.
+- **Auth**: stateless JWT in `Authorization: Bearer`. Claims: `sub` = user id, `role` (becomes `ROLE_<role>`), `ip_address`. `ABACRules.authorizeIpAddress` rejects a token used from a different IP with 403. Only `GET /syn`, `POST /auth/register`, `GET /auth/verify/*` and error dispatches are public; open new public endpoints explicitly in `SecurityConfig`.
 - **Registration and verification mail**: `POST /auth/register` validates the whole body before hashing, saves the user with `verified=false`, stores a 15-minute token in Redis (`auth:verification:<uuid>` = `<VerificationFlow>:<userId>`), and sends the email synchronously inside the transaction. On any mail failure, delete the token and rethrow so the user insert rolls back and the client gets a 500. Duplicates are told apart by constraint name (`user_username_lower_key`, `user_email_lower_key`), never by the DB message, which embeds user input. Links are `app.base-url` + `/auth/verify/<token>`. The email shows the client IP's GeoIP details (continent, country, city, timezone, coordinates, accuracy radius, AS organization) from `GeoIpService`; a failed lookup is logged and those rows show `N/A`, it never fails the registration.
+- **Verification page**: `GET /auth/verify/{token}` renders `templates/auth/auth-redirection.html`, a form that POSTs to `/auth/mfa/confirm/register/{token}`. It does not read Redis, consume the token or touch the account; invalid tokens get the page too and the confirm endpoint answers 401. When a login flow is added, read the token's flow here to pick the form target. It sends `Cache-Control: no-store` and `Referrer-Policy: no-referrer` because the token is in the URL.
 - **Hosts and event logs**: `HostEventService.recordHost` finds or creates the caller's host for (user, client IP) and sets `lastSeenAt`; `logEvent` writes an event log with the user agent (`Unknown` if missing, cut to 512 chars). Call both inside the flow's transaction so they roll back with it. `POST /auth/register` records the host and an `INFO` "Account registered" event before sending the email.
 - **API contract**: implement endpoints to match `docs/api/api.yaml`. Update the spec in the same change when behavior differs.
 - **Tests**: integration tests extend `TestcontainersConfig`. Keep coverage at or above 85% or `check` fails.
