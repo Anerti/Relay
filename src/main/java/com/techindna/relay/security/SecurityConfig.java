@@ -42,6 +42,8 @@ public class SecurityConfig {
                                         .permitAll()
                                         .requestMatchers(HttpMethod.GET, "/auth/verify/*")
                                         .permitAll()
+                                        .requestMatchers(HttpMethod.POST, "/auth/mfa/confirm/register/*")
+                                        .permitAll()
                                         .dispatcherTypeMatchers(DispatcherType.ERROR)
                                         .permitAll()
                                         .anyRequest()

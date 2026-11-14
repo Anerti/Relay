@@ -2,7 +2,9 @@ package com.techindna.relay.controller;
 
 import com.techindna.relay.dto.MessageBody;
 import com.techindna.relay.dto.RegisterInput;
+import com.techindna.relay.dto.VerifyRegistrationResponse;
 import com.techindna.relay.service.auth.RegistrationService;
+import com.techindna.relay.service.auth.VerificationService;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.util.Map;
@@ -24,6 +26,7 @@ import org.springframework.web.servlet.ModelAndView;
 public class AuthController {
 
     private final RegistrationService registrationService;
+    private final VerificationService verificationService;
 
     @PostMapping("/register")
     @ResponseStatus(HttpStatus.ACCEPTED)
@@ -36,5 +39,10 @@ public class AuthController {
         response.setHeader(HttpHeaders.CACHE_CONTROL, "no-store");
         response.setHeader("Referrer-Policy", "no-referrer");
         return new ModelAndView("auth/auth-redirection", Map.of("token", token));
+    }
+
+    @PostMapping("/mfa/confirm/register/{token}")
+    public VerifyRegistrationResponse confirmRegistration(@PathVariable String token, HttpServletRequest request) {
+        return verificationService.confirmRegistration(token, request);
     }
 }

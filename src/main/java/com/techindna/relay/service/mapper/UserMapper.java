@@ -1,6 +1,7 @@
 package com.techindna.relay.service.mapper;
 
 import com.techindna.relay.dto.RegisterInput;
+import com.techindna.relay.entity.User;
 import com.techindna.relay.repository.model.JUser;
 import com.techindna.relay.validator.DataValidator;
 import lombok.RequiredArgsConstructor;
@@ -23,5 +24,18 @@ public class UserMapper {
                 .email(dataValidator.normalizeEmail(input.email()))
                 .verified(false)
                 .build();
+    }
+
+    public User toDomain(JUser user) {
+        return new User(
+                user.getId(),
+                user.getUsername(),
+                user.getFirstName(),
+                user.getLastName(),
+                user.getEmail(),
+                user.getRole(),
+                user.getStatus(),
+                user.getCreatedAt(),
+                user.getUpdatedAt());
     }
 }

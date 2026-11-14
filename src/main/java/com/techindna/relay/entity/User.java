@@ -12,9 +12,8 @@ public record User(
         String firstName,
         String lastName,
         String email,
-        boolean verified,
         UserRole role,
-        UserStatus status,
+        UserStatus userStatus,
         Instant createdAt,
         Instant updatedAt
 ) {}

@@ -661,8 +661,10 @@ paths:
       summary: Verify registration email
       description: >-
         Validates and consumes a one-time UUID registration token from the path, marks the
-        user as verified, and returns a JWT and user details. The token expires after
-        15 minutes.
+        user as verified, records the caller's host (IP address) on the account with an info
+        event log, and returns a JWT bound to the caller's IP and the user details. The token
+        expires after 15 minutes. It is consumed even when the request fails with 401,
+        so a rejected token cannot be retried.
       tags: [MFA]
       parameters:
         - name: token
@@ -694,7 +696,9 @@ paths:
                 message: Invalid or expired token
                 timestamp: 2026-07-20T15:00:00Z
         '403':
-          description: Account is locked or inactive
+          description: >-
+            A bearer token was sent and it is bound to a different IP than the request's.
+            The endpoint needs no token; send none to avoid this.
           content:
             application/json:
               schema:
@@ -702,7 +706,7 @@ paths:
               example:
                 status: 403
                 error: FORBIDDEN
-                message: Account is locked or inactive. Please request account access restoration to continue.
+                message: Cannot access this resource from the current IP address.
                 timestamp: 2026-07-20T15:00:00Z
 
   /auth/mfa/confirm/login/{token}:
