@@ -5,10 +5,14 @@ import java.util.Locale;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.TypeMismatchException;
+import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.web.HttpMediaTypeNotAcceptableException;
 import org.springframework.web.HttpMediaTypeNotSupportedException;
+import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MissingPathVariableException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
@@ -19,7 +23,13 @@ public class GlobalExceptionHandler {
     private static final Logger log = LoggerFactory.getLogger(GlobalExceptionHandler.class);
 
     private ResponseEntity<ErrorBody> buildResponse(HttpStatus status, String message) {
+        return buildResponse(status, message, HttpHeaders.EMPTY);
+    }
+
+    private ResponseEntity<ErrorBody> buildResponse(HttpStatus status, String message, HttpHeaders headers) {
         return ResponseEntity.status(status)
+                .headers(headers)
+                .contentType(MediaType.APPLICATION_JSON)
                 .body(
                         ErrorBody.builder()
                                 .error(status.getReasonPhrase().toUpperCase(Locale.ROOT))
@@ -69,6 +79,16 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
     public ResponseEntity<ErrorBody> handleUnsupportedMediaType() {
         return buildResponse(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "Unsupported content type.");
+    }
+
+    @ExceptionHandler(HttpMediaTypeNotAcceptableException.class)
+    public ResponseEntity<ErrorBody> handleNotAcceptable() {
+        return buildResponse(HttpStatus.NOT_ACCEPTABLE, "Not acceptable.");
+    }
+
+    @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
+    public ResponseEntity<ErrorBody> handleMethodNotAllowed(HttpRequestMethodNotSupportedException ex) {
+        return buildResponse(HttpStatus.METHOD_NOT_ALLOWED, "Method not allowed.", ex.getHeaders());
     }
 
     @ExceptionHandler(ConflictException.class)

@@ -25,7 +25,6 @@ public class ClientDetailsService {
 
         GeoIp geoIp = geoIpService.lookup(ipAddress);
         if (geoIp != null) {
-            variables.put("ipAddress", geoIp.ipAddress());
             variables.put("continent", geoIp.continent());
             variables.put("country", geoIp.country());
             variables.put("city", geoIp.city());

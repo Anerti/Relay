@@ -151,6 +151,23 @@ class AuthConfirmRegistrationTest extends TestcontainersConfig {
                 .andExpect(status().isUnauthorized());
     }
 
+    @Test
+    void textOnlyClientIsNotAcceptableAndTokenIsKept() throws Exception {
+        String token = registerAndGetToken();
+
+        mockMvc.perform(post("/auth/mfa/confirm/register/{token}", token)
+                        .with(request -> {
+                            request.setRemoteAddr(REGISTRATION_IP);
+                            return request;
+                        })
+                        .accept(MediaType.TEXT_PLAIN))
+                .andExpect(status().isNotAcceptable())
+                .andExpect(jsonPath("$.message").value("Not acceptable."));
+
+        assertThat(redis.keys(TOKEN_PREFIX + "*")).hasSize(1);
+        assertThat(userRepository.findAll().getFirst().getVerified()).isFalse();
+    }
+
     private void assertUnauthorized(String token) throws Exception {
         confirm(token, REGISTRATION_IP)
                 .andExpect(status().isUnauthorized())

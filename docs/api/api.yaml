@@ -72,6 +72,28 @@ paths:
                 error: UNSUPPORTED MEDIA TYPE
                 message: Unsupported content type.
                 timestamp: 2026-07-20T15:00:00Z
+        '405':
+          description: Method other than POST; the Allow header lists POST
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+              example:
+                status: 405
+                error: METHOD NOT ALLOWED
+                message: Method not allowed.
+                timestamp: 2026-07-20T15:00:00Z
+        '406':
+          description: Accept header excludes application/json; nothing is saved and no email is sent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+              example:
+                status: 406
+                error: NOT ACCEPTABLE
+                message: Not acceptable.
+                timestamp: 2026-07-20T15:00:00Z
         '422':
           description: Validation failure
           content:
@@ -694,6 +716,17 @@ paths:
                 status: 401
                 error: UNAUTHORIZED
                 message: Invalid or expired token
+                timestamp: 2026-07-20T15:00:00Z
+        '406':
+          description: Accept header excludes application/json; the token is not consumed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+              example:
+                status: 406
+                error: NOT ACCEPTABLE
+                message: Not acceptable.
                 timestamp: 2026-07-20T15:00:00Z
         '403':
           description: >-
@@ -2295,7 +2328,7 @@ components:
           minLength: 12
           maxLength: 255
           writeOnly: true
-          description: Must contain an uppercase letter, a lowercase letter, a digit, and a special character; must not contain line breaks or other control characters
+          description: Must contain an uppercase letter, a lowercase letter, a digit, and a special character; must not contain line breaks or other control characters; length counts Unicode characters
         confirmPassword:
           type: string
           writeOnly: true
@@ -2304,12 +2337,12 @@ components:
           type: string
           maxLength: 100
           pattern: '^[\p{L}\p{M}]+([ ''’-][\p{L}\p{M}]+)*$'
-          description: Letters in any script, with single spaces, apostrophes, or hyphens between words; surrounding whitespace is trimmed
+          description: Letters in any script, with single spaces, apostrophes, or hyphens between words; surrounding whitespace is trimmed; length counts Unicode characters
         lastName:
           type: string
           maxLength: 100
           pattern: '^[\p{L}\p{M}]+([ ''’-][\p{L}\p{M}]+)*$'
-          description: Letters in any script, with single spaces, apostrophes, or hyphens between words; surrounding whitespace is trimmed
+          description: Letters in any script, with single spaces, apostrophes, or hyphens between words; surrounding whitespace is trimmed; length counts Unicode characters
         email:
           type: string
           format: email

@@ -11,6 +11,7 @@ import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -28,7 +29,7 @@ public class AuthController {
     private final RegistrationService registrationService;
     private final VerificationService verificationService;
 
-    @PostMapping("/register")
+    @PostMapping(value = "/register", produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseStatus(HttpStatus.ACCEPTED)
     public MessageBody register(@RequestBody RegisterInput input, HttpServletRequest request) {
         return registrationService.register(input, request);
@@ -41,7 +42,7 @@ public class AuthController {
         return new ModelAndView("auth/auth-redirection", Map.of("token", token));
     }
 
-    @PostMapping("/mfa/confirm/register/{token}")
+    @PostMapping(value = "/mfa/confirm/register/{token}", produces = MediaType.APPLICATION_JSON_VALUE)
     public VerifyRegistrationResponse confirmRegistration(@PathVariable String token, HttpServletRequest request) {
         return verificationService.confirmRegistration(token, request);
     }
