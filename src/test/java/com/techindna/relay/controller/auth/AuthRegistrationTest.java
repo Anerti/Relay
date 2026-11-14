@@ -4,7 +4,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -307,6 +311,45 @@ class AuthRegistrationTest extends TestcontainersConfig {
 
         assertThat(latestEmail()).contains("198.51.100.7", "N/A");
         assertThat(userRepository.count()).isOne();
+    }
+
+    @Test
+    void ipv6ZoneIdIsStrippedFromClientAddress() throws Exception {
+        register(body(Map.of()), "fe80::1%1").andExpect(status().isAccepted());
+
+        JUser user = userRepository.findAll().getFirst();
+        assertThat(hostRepository.findByUserAndIpAddress(user, InetAddress.ofLiteral("fe80::1"))).isPresent();
+    }
+
+    @Test
+    void textOnlyClientIsNotAcceptableBeforeAnythingIsSaved() throws Exception {
+        mockMvc.perform(post("/auth/register")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .accept(MediaType.TEXT_PLAIN)
+                        .content(body(Map.of())))
+                .andExpect(status().isNotAcceptable())
+                .andExpect(jsonPath("$.message").value("Not acceptable."));
+
+        assertThat(userRepository.count()).isZero();
+        verify(emailService, never()).sendMail(any());
+    }
+
+    @Test
+    void getIsMethodNotAllowed() throws Exception {
+        mockMvc.perform(get("/auth/register"))
+                .andExpect(status().isMethodNotAllowed())
+                .andExpect(header().string(HttpHeaders.ALLOW, "POST"))
+                .andExpect(jsonPath("$.message").value("Method not allowed."));
+    }
+
+    @Test
+    void shortPasswordCountsCharactersNotUtf16Units() throws Exception {
+        assertUnprocessable("password", "Aa1!😀😀😀😀", "Password must be at least 12 characters");
+    }
+
+    @Test
+    void nameLengthCountsCharactersNotUtf16Units() throws Exception {
+        register(body(Map.of("firstName", "𠀀".repeat(60)))).andExpect(status().isAccepted());
     }
 
     private void assertUnprocessable(String field, String value, String message) throws Exception {

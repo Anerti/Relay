@@ -31,7 +31,7 @@ public class DataValidator {
     }
 
     public void checkStringLength(String field, String value, int maxLength) {
-        if (value != null && value.length() > maxLength) {
+        if (value != null && length(value) > maxLength) {
             throw new UnprocessableContentException(String.format("%s must not exceed %s characters", field, maxLength));
         }
     }
@@ -84,7 +84,7 @@ public class DataValidator {
         checkNullData(field, password);
         checkStringLength(field, password, 255);
 
-        if (password.length() < 12) {
+        if (length(password) < 12) {
             throw new UnprocessableContentException(label + " must be at least 12 characters");
         }
 
@@ -107,5 +107,9 @@ public class DataValidator {
         if (CONTROL_CHARACTER.matcher(password).find()) {
             throw new UnprocessableContentException(label + " must not contain line breaks or control characters");
         }
+    }
+
+    private int length(String value) {
+        return value.codePointCount(0, value.length());
     }
 }

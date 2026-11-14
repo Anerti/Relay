@@ -11,7 +11,9 @@ public class ClientDataConfig {
     private static final int USER_AGENT_MAX_LENGTH = 512;
 
     public String ipAddress(HttpServletRequest request) {
-        return request.getRemoteAddr();
+        String ipAddress = request.getRemoteAddr();
+        int zoneIndex = ipAddress.indexOf('%');
+        return zoneIndex < 0 ? ipAddress : ipAddress.substring(0, zoneIndex);
     }
 
     public String userAgent(HttpServletRequest request) {

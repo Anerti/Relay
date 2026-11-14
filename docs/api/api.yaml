@@ -72,6 +72,28 @@ paths:
                 error: UNSUPPORTED MEDIA TYPE
                 message: Unsupported content type.
                 timestamp: 2026-07-20T15:00:00Z
+        '405':
+          description: Method other than POST; the Allow header lists POST
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+              example:
+                status: 405
+                error: METHOD NOT ALLOWED
+                message: Method not allowed.
+                timestamp: 2026-07-20T15:00:00Z
+        '406':
+          description: Accept header excludes application/json; nothing is saved and no email is sent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+              example:
+                status: 406
+                error: NOT ACCEPTABLE
+                message: Not acceptable.
+                timestamp: 2026-07-20T15:00:00Z
         '422':
           description: Validation failure
           content:
@@ -608,6 +630,9 @@ paths:
         Displays a confirmation page without consuming the token or changing account state.
         The user must submit the form to the confirmation endpoint for the flow:
         POST /auth/mfa/confirm/register/{token} or POST /auth/mfa/confirm/login/{token}.
+        Only the registration flow exists so far, so the form always targets
+        POST /auth/mfa/confirm/register/{token}. The token is not validated here: an unknown,
+        expired or malformed token still gets the page, and the confirmation endpoint answers 401.
       tags: [MFA]
       parameters:
         - name: token
@@ -623,10 +648,34 @@ paths:
           $ref: '#/components/responses/TooManyRequests'
         '200':
           description: Confirmation page
+          headers:
+            Cache-Control:
+              description: Keeps the token-bearing page out of caches
+              schema:
+                type: string
+                example: no-store
+            Referrer-Policy:
+              description: Keeps the token out of the Referer header
+              schema:
+                type: string
+                example: no-referrer
           content:
             text/html:
               schema:
                 type: string
+        '403':
+          description: >-
+            A bearer token was sent and it is bound to a different IP than the request's.
+            The endpoint needs no token; send none to avoid this.
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+              example:
+                status: 403
+                error: FORBIDDEN
+                message: Cannot access this resource from the current IP address.
+                timestamp: 2026-07-20T15:00:00Z
 
   /auth/mfa/confirm/register/{token}:
     post:
@@ -634,8 +683,10 @@ paths:
       summary: Verify registration email
       description: >-
         Validates and consumes a one-time UUID registration token from the path, marks the
-        user as verified, and returns a JWT and user details. The token expires after
-        15 minutes.
+        user as verified, records the caller's host (IP address) on the account with an info
+        event log, and returns a JWT bound to the caller's IP and the user details. The token
+        expires after 15 minutes. It is consumed even when the request fails with 401,
+        so a rejected token cannot be retried.
       tags: [MFA]
       parameters:
         - name: token
@@ -666,8 +717,21 @@ paths:
                 error: UNAUTHORIZED
                 message: Invalid or expired token
                 timestamp: 2026-07-20T15:00:00Z
+        '406':
+          description: Accept header excludes application/json; the token is not consumed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+              example:
+                status: 406
+                error: NOT ACCEPTABLE
+                message: Not acceptable.
+                timestamp: 2026-07-20T15:00:00Z
         '403':
-          description: Account is locked or inactive
+          description: >-
+            A bearer token was sent and it is bound to a different IP than the request's.
+            The endpoint needs no token; send none to avoid this.
           content:
             application/json:
               schema:
@@ -675,7 +739,7 @@ paths:
               example:
                 status: 403
                 error: FORBIDDEN
-                message: Account is locked or inactive. Please request account access restoration to continue.
+                message: Cannot access this resource from the current IP address.
                 timestamp: 2026-07-20T15:00:00Z
 
   /auth/mfa/confirm/login/{token}:
@@ -2264,7 +2328,7 @@ components:
           minLength: 12
           maxLength: 255
           writeOnly: true
-          description: Must contain an uppercase letter, a lowercase letter, a digit, and a special character; must not contain line breaks or other control characters
+          description: Must contain an uppercase letter, a lowercase letter, a digit, and a special character; must not contain line breaks or other control characters; length counts Unicode characters
         confirmPassword:
           type: string
           writeOnly: true
@@ -2273,12 +2337,12 @@ components:
           type: string
           maxLength: 100
           pattern: '^[\p{L}\p{M}]+([ ''’-][\p{L}\p{M}]+)*$'
-          description: Letters in any script, with single spaces, apostrophes, or hyphens between words; surrounding whitespace is trimmed
+          description: Letters in any script, with single spaces, apostrophes, or hyphens between words; surrounding whitespace is trimmed; length counts Unicode characters
         lastName:
           type: string
           maxLength: 100
           pattern: '^[\p{L}\p{M}]+([ ''’-][\p{L}\p{M}]+)*$'
-          description: Letters in any script, with single spaces, apostrophes, or hyphens between words; surrounding whitespace is trimmed
+          description: Letters in any script, with single spaces, apostrophes, or hyphens between words; surrounding whitespace is trimmed; length counts Unicode characters
         email:
           type: string
           format: email
