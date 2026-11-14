@@ -4,7 +4,6 @@ import com.techindna.relay.exception.http.BadRequestException;
 import com.techindna.relay.exception.http.UnprocessableContentException;
 import org.springframework.stereotype.Component;
 
-import java.net.InetAddress;
 import java.util.Locale;
 import java.util.regex.Pattern;
 
@@ -73,17 +72,6 @@ public class DataValidator {
         if (value != null && !EMAIL_FORMAT.matcher(normalizeEmail(value)).matches()) {
             throw new UnprocessableContentException(String.format("Email %s is not valid", value));
         }
-    }
-
-    public String validateIpAddress(String value) {
-        try {
-            String address = InetAddress.ofLiteral(value).getHostAddress();
-            if (!address.contains("%")) {
-                return address;
-            }
-        } catch (IllegalArgumentException ignored) {
-        }
-        throw new BadRequestException(String.format("IP address %s is not valid", value));
     }
 
     public void validateName(String field, String value) {
