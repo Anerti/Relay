@@ -30,6 +30,23 @@ public class VerificationTokenService {
     public UUID consume(String token, VerificationFlow flow) {
         String value = redisTemplate.opsForValue().getAndDelete(KEY_PREFIX + token);
         String prefix = flow.name() + VALUE_SEPARATOR;
-        return value != null && value.startsWith(prefix) ? UUID.fromString(value.substring(prefix.length())) : null;
+        try {
+            return value != null && value.startsWith(prefix)
+                    ? UUID.fromString(value.substring(prefix.length()))
+                    : null;
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
+    }
+
+    public VerificationFlow findFlow(String token) {
+        String value = redisTemplate.opsForValue().get(KEY_PREFIX + token);
+        try {
+            return value != null && value.contains(VALUE_SEPARATOR)
+                    ? VerificationFlow.valueOf(value.substring(0, value.indexOf(VALUE_SEPARATOR)))
+                    : null;
+        } catch (IllegalArgumentException e) {
+            return null;
+        }
     }
 }

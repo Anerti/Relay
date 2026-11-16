@@ -1,7 +1,8 @@
 package com.techindna.relay.entity.email;
 
 public enum EmailTemplate {
-    REGISTRATION_VERIFICATION("mail/registration-verification");
+    REGISTRATION_VERIFICATION("mail/registration-verification"),
+    LOGIN_VERIFICATION("mail/login-verification");
 
     private final String view;
 
