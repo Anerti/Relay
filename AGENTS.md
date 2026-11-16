@@ -1,6 +1,6 @@
 # AGENTS.md
 
-Relay is a Spring Boot REST API (users, JWT auth, direct messages, AI-agent conversations, per-account host/event logs). Most of it is still specified, not built: `docs/api/api.yaml` is the contract, and only `GET /syn`, `POST /auth/register`, `POST /auth/login`, `GET /auth/verify/{token}`, `POST /auth/mfa/confirm/register/{token}` and `POST /auth/mfa/confirm/login/{token}` are implemented so far.
+Relay is a Spring Boot REST API (users, JWT auth, direct messages, AI-agent conversations, per-account host/event logs). Most of it is still specified, not built: `docs/api/api.yaml` is the contract, and only `GET /syn`, `POST /auth/register`, `POST /auth/login`, `GET /auth/verify/{token}`, `POST /auth/mfa/confirm/register/{token}`, `POST /auth/mfa/confirm/login/{token}` and `GET /users/{userId}` are implemented so far.
 
 ## Stack
 
@@ -43,12 +43,12 @@ Tests get Postgres, Redis, a Mailpit SMTP server, a stub GeoIP server and a rand
 | `controller` | REST controllers |
 | `dto` | Request and response bodies named after their spec schemas (`RegisterInput`, `MessageBody`) |
 | `entity` | Domain records returned by the API (`User`) and enums; `entity/email` holds `EmailDetails` and `EmailTemplate` |
-| `service` | Business logic and transactions: `auth`, `mail`, `redis`, `mapper`, `event` (`HostEventService`: hosts and event logs), `event/auth` (emails sent by auth flows), `enums` |
+| `service` | Business logic and transactions: `UserService`, `auth`, `mail`, `redis`, `mapper`, `event` (`HostEventService`: hosts and event logs), `event/auth` (emails sent by auth flows), `enums` |
 | `repository` | Repositories |
 | `repository/model` | JPA entities, prefixed `J` (`JUser`) |
 | `exception`, `exception/http` | `ErrorBody`, `GlobalExceptionHandler`, one exception per HTTP status |
 | `validator` | `DataValidator`: input normalization and validation; `AuthValidator` composes it per request body |
-| `security`, `security/jwt` | Filter chain, JWT issue/verify, ABAC rules, client IP resolution |
+| `security`, `security/jwt` | Filter chain, JWT issue/verify, ABAC and RBAC rules, client IP resolution |
 | `config` | CORS, GeoIP `RestTemplate` |
 
 ## Conventions
@@ -66,6 +66,7 @@ Tests get Postgres, Redis, a Mailpit SMTP server, a stub GeoIP server and a rand
 - **Registration confirmation**: `POST /auth/mfa/confirm/register/{token}` (`VerificationService`) consumes the token atomically with `VerificationTokenService.consume` (Redis `GETDEL`), so it is gone even when the request then fails. A missing, malformed or non-`REGISTER` token, or a deleted user, is 401 `Invalid or expired token`. Otherwise it sets `verified=true`, records the host and an `INFO` "Account verified" event, and returns a JWT bound to the caller's IP plus the `User` record.
 - **Login confirmation**: `POST /auth/mfa/confirm/login/{token}` also consumes the token first, so it cannot be retried. A missing, malformed or non-`LOGIN` token, or a deleted user, is 401 `Invalid or expired token` and is not logged; a non-active (locked or inactive) or unverified account, or a banned host, is 403 and records the host plus a `MEDIUM` `[LOGIN FAILED]: account locked or inactive`, `[LOGIN FAILED]: account not verified` or `[LOGIN FAILED]: host banned` event that commits despite the exception. Otherwise it records the host and an `INFO` `[LOGIN]: Account signed in` event and returns a JWT bound to the caller's IP plus the `User` record.
 - **Hosts and event logs**: `HostEventService.recordHost` upserts the caller's host for (user, client IP) with `INSERT ... ON CONFLICT DO UPDATE` on `last_seen_at`, so concurrent first requests from one IP do not hit the unique key; `ClientDataConfig.ipAddress` strips an IPv6 zone id (`fe80::1%1`), which Postgres `inet` rejects. `logEvent` writes an event log with the user agent (`Unknown` if missing, cut to 512 chars). Call both inside the flow's transaction so they roll back with it, unless an exception is explicitly marked `noRollbackFor`. `POST /auth/register` records the host and an `INFO` `[REGISTRATION]: Account registered` event before sending the email; `POST /auth/login` records the host and `[LOGIN]` events, and its confirmation records an `INFO` `[LOGIN]: Account signed in` event.
+- **Account access**: `RBACRules.authorize` lets a superuser reach a guest account or their own and a guest only their own; anything else is 403 `Cannot access this resource.` (a token without a role is 403 too). `GET /users/{userId}` (`UserService.getUser`) looks the user up first, so an unknown id is 404 `User not found` before the access check; a malformed id is 400.
 - **API contract**: implement endpoints to match `docs/api/api.yaml`. Update the spec in the same change when behavior differs.
 - **Tests**: integration tests extend `TestcontainersConfig`. Keep coverage at or above 85% or `check` fails.
 
