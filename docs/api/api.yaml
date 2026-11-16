@@ -1000,6 +1000,10 @@ paths:
     get:
       operationId: getUser
       summary: Get a user by ID
+      description: >-
+        Returns the user's account. A superuser may get a guest account or their own;
+        a guest may get only their own. Returns 404 when the user does not exist, before
+        the access check. This endpoint requires authentication.
       tags: [Users]
       security:
         - bearerAuth: []
@@ -1019,6 +1023,17 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/User'
+        '400':
+          description: userId is not a valid UUID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+              example:
+                status: 400
+                error: BAD REQUEST
+                message: 'Invalid parameter: userId'
+                timestamp: 2026-07-20T15:00:00Z
         '401':
           description: Missing or invalid authentication token
           content:
@@ -1028,19 +1043,38 @@ paths:
               example:
                 status: 401
                 error: UNAUTHORIZED
-                message: Missing or invalid authentication token
+                message: Authentication required.
                 timestamp: 2026-07-20T15:00:00Z
         '403':
-          description: Insufficient permissions
+          description: >-
+            A guest targeted another account, a superuser targeted another superuser,
+            the token carries no role, or the token is bound to a different IP than the request's
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorBody'
-              example:
-                status: 403
-                error: FORBIDDEN
-                message: Cannot access this resource.
-                timestamp: 2026-07-20T15:00:00Z
+              examples:
+                otherAccount:
+                  summary: Account not accessible to the caller
+                  value:
+                    status: 403
+                    error: FORBIDDEN
+                    message: Cannot access this resource.
+                    timestamp: 2026-07-20T15:00:00Z
+                noRole:
+                  summary: Token carries no role
+                  value:
+                    status: 403
+                    error: FORBIDDEN
+                    message: Insufficient privileges to access this resource
+                    timestamp: 2026-07-20T15:00:00Z
+                otherIp:
+                  summary: Token bound to another IP address
+                  value:
+                    status: 403
+                    error: FORBIDDEN
+                    message: Cannot access this resource from the current IP address.
+                    timestamp: 2026-07-20T15:00:00Z
         '404':
           description: Resource not found
           content:

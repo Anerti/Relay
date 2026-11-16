@@ -50,8 +50,10 @@ public class SecurityConfig {
                                         .permitAll()
                                         .dispatcherTypeMatchers(DispatcherType.ERROR)
                                         .permitAll()
+                                        .requestMatchers(HttpMethod.GET, "/users/*")
+                                        .authenticated()
                                         .anyRequest()
-                                        .authenticated())
+                                        .denyAll())
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)
                 .exceptionHandling(
                         exceptions ->
