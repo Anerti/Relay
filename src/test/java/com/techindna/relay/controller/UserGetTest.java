@@ -3,6 +3,7 @@ package com.techindna.relay.controller;
 import static org.hamcrest.Matchers.hasKey;
 import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -22,6 +23,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.HttpHeaders;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
+import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 
 @SpringBootTest
 @AutoConfigureMockMvc
@@ -165,6 +167,40 @@ class UserGetTest extends TestcontainersConfig {
                 .andExpect(jsonPath("$.message").value("Cannot access this resource from the current IP address."));
     }
 
+    @Test
+    void trailingSlashIsForbidden() throws Exception {
+        JUser user = createUser("jdoe", UserRole.GUEST);
+
+        perform(get("/users/" + user.getId() + "/"), tokenFor(user))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("Insufficient privileges."));
+    }
+
+    @Test
+    void unknownPathIsForbidden() throws Exception {
+        JUser user = createUser("jdoe", UserRole.GUEST);
+
+        perform(get("/users"), tokenFor(user))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("Insufficient privileges."));
+    }
+
+    @Test
+    void unknownPathWithoutTokenIsUnauthorized() throws Exception {
+        perform(get("/users"), null)
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.message").value("Authentication required."));
+    }
+
+    @Test
+    void wrongMethodIsForbidden() throws Exception {
+        JUser user = createUser("jdoe", UserRole.GUEST);
+
+        perform(patch("/users/{userId}", user.getId()), tokenFor(user))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("Insufficient privileges."));
+    }
+
     private JUser createUser(String username, UserRole role) {
         return userRepository.saveAndFlush(JUser.builder()
                 .username(username)
@@ -182,7 +218,11 @@ class UserGetTest extends TestcontainersConfig {
     }
 
     private ResultActions getUser(String userId, String token) throws Exception {
-        return mockMvc.perform(get("/users/{userId}", userId)
+        return perform(get("/users/{userId}", userId), token);
+    }
+
+    private ResultActions perform(MockHttpServletRequestBuilder builder, String token) throws Exception {
+        return mockMvc.perform(builder
                 .with(request -> {
                     request.setRemoteAddr(CLIENT_IP);
                     if (token != null) {
