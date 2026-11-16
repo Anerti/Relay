@@ -1,8 +1,10 @@
 package com.techindna.relay.controller;
 
+import com.techindna.relay.dto.LoginInput;
 import com.techindna.relay.dto.MessageBody;
 import com.techindna.relay.dto.RegisterInput;
 import com.techindna.relay.dto.VerifyRegistrationResponse;
+import com.techindna.relay.service.auth.LoginService;
 import com.techindna.relay.service.auth.RegistrationService;
 import com.techindna.relay.service.auth.VerificationService;
 import jakarta.servlet.http.HttpServletRequest;
@@ -27,6 +29,7 @@ import org.springframework.web.servlet.ModelAndView;
 public class AuthController {
 
     private final RegistrationService registrationService;
+    private final LoginService loginService;
     private final VerificationService verificationService;
 
     @PostMapping(value = "/register", produces = MediaType.APPLICATION_JSON_VALUE)
@@ -35,15 +38,29 @@ public class AuthController {
         return registrationService.register(input, request);
     }
 
+    @PostMapping(value = "/login", produces = MediaType.APPLICATION_JSON_VALUE)
+    @ResponseStatus(HttpStatus.ACCEPTED)
+    public MessageBody login(@RequestBody LoginInput input, HttpServletRequest request) {
+        return loginService.login(input, request);
+    }
+
     @GetMapping("/verify/{token}")
     public ModelAndView showVerificationConfirmation(@PathVariable String token, HttpServletResponse response) {
         response.setHeader(HttpHeaders.CACHE_CONTROL, "no-store");
         response.setHeader("Referrer-Policy", "no-referrer");
-        return new ModelAndView("auth/auth-redirection", Map.of("token", token));
+
+        return new ModelAndView(
+                "auth/auth-redirection",
+                Map.of("token", token, "flow", verificationService.confirmationFlow(token)));
     }
 
     @PostMapping(value = "/mfa/confirm/register/{token}", produces = MediaType.APPLICATION_JSON_VALUE)
     public VerifyRegistrationResponse confirmRegistration(@PathVariable String token, HttpServletRequest request) {
         return verificationService.confirmRegistration(token, request);
+    }
+
+    @PostMapping(value = "/mfa/confirm/login/{token}", produces = MediaType.APPLICATION_JSON_VALUE)
+    public VerifyRegistrationResponse confirmLogin(@PathVariable String token, HttpServletRequest request) {
+        return verificationService.confirmLogin(token, request);
     }
 }

@@ -1,5 +1,6 @@
 package com.techindna.relay.validator;
 
+import com.techindna.relay.dto.LoginInput;
 import com.techindna.relay.dto.RegisterInput;
 import com.techindna.relay.exception.http.UnprocessableContentException;
 import lombok.RequiredArgsConstructor;
@@ -37,5 +38,32 @@ public class AuthValidator {
         dataValidator.checkNullData("email", email);
         dataValidator.checkStringLength("email", email, 100);
         dataValidator.validateEmail(email);
+    }
+
+    public void validateLogin(LoginInput input) {
+        String username = dataValidator.normalizeUsername(input.username());
+        String email = dataValidator.normalizeEmail(input.email());
+
+        boolean usernameProvided = username != null && !username.isBlank();
+        boolean emailProvided = email != null && !email.isBlank();
+
+        if (!usernameProvided && !emailProvided) {
+            throw new UnprocessableContentException("Username or email is required and cannot be blank");
+        }
+
+        if (usernameProvided && emailProvided) {
+            throw new UnprocessableContentException("Provide either username or email, not both");
+        }
+
+        if (usernameProvided) {
+            dataValidator.validateUsername(username);
+        }
+
+        if (emailProvided) {
+            dataValidator.checkStringLength("email", email, 100);
+            dataValidator.validateEmail(email);
+        }
+
+        dataValidator.checkNullData("password", input.password());
     }
 }

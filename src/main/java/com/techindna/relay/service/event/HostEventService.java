@@ -24,11 +24,9 @@ public class HostEventService {
     public JHost recordHost(JUser user, HttpServletRequest request) {
         InetAddress ipAddress = InetAddress.ofLiteral(clientDataConfig.ipAddress(request));
 
-        JHost host = hostRepository.findByUserAndIpAddress(user, ipAddress)
-                .orElseGet(() -> JHost.builder().user(user).ipAddress(ipAddress).build());
-        host.setLastSeenAt(Instant.now());
+        hostRepository.upsertLastSeen(user.getId(), ipAddress.getHostAddress(), Instant.now());
 
-        return hostRepository.saveAndFlush(host);
+        return hostRepository.findByUserAndIpAddress(user, ipAddress).orElseThrow();
     }
 
     public void logEvent(

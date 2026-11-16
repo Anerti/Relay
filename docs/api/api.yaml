@@ -192,6 +192,13 @@ paths:
                     error: UNPROCESSABLE CONTENT
                     message: Username or email is required and cannot be blank
                     timestamp: 2026-07-20T15:00:00Z
+                bothIdentifiers:
+                  summary: Both username and email provided
+                  value:
+                    status: 422
+                    error: UNPROCESSABLE CONTENT
+                    message: Provide either username or email, not both
+                    timestamp: 2026-07-20T15:00:00Z
                 invalidEmail:
                   summary: Email format invalid
                   value:
@@ -239,7 +246,7 @@ paths:
                   value:
                     status: 403
                     error: FORBIDDEN
-                    message: This account has been locked after too many unsuccessful sign-in attempts. Request an account-unlock link to regain access.
+                    message: This account has been locked after too many unsuccessful sign-in attempts.
                     timestamp: 2026-07-20T15:00:00Z
                 accountNotVerified:
                   summary: Account not yet verified
@@ -630,9 +637,9 @@ paths:
         Displays a confirmation page without consuming the token or changing account state.
         The user must submit the form to the confirmation endpoint for the flow:
         POST /auth/mfa/confirm/register/{token} or POST /auth/mfa/confirm/login/{token}.
-        Only the registration flow exists so far, so the form always targets
-        POST /auth/mfa/confirm/register/{token}. The token is not validated here: an unknown,
-        expired or malformed token still gets the page, and the confirmation endpoint answers 401.
+        The page reads the token's flow from Redis to choose the form target; unknown,
+        expired or malformed tokens, or a Redis failure, still get the page with the
+        registration form target, and the confirmation endpoint answers 401.
       tags: [MFA]
       parameters:
         - name: token
@@ -747,9 +754,10 @@ paths:
       operationId: confirmLogin
       summary: Confirm sign-in
       description: >-
-        Validates and consumes a one-time UUID login token from the path, then returns
-        a JWT and user details for the already verified user. The token expires after
-        15 minutes.
+        Validates and consumes a one-time UUID login token from the path, records the
+        caller's host (IP address) on the account with an info event log, and returns
+        a JWT bound to the caller's IP and the user details for the already verified user.
+        The token expires after 15 minutes.
       tags: [MFA]
       parameters:
         - name: token
@@ -781,7 +789,7 @@ paths:
                 message: Invalid or expired token
                 timestamp: 2026-07-20T15:00:00Z
         '403':
-          description: Account is locked, inactive, or not verified
+          description: Account is locked, inactive, not verified, or the caller's host is banned
           content:
             application/json:
               schema:
@@ -800,6 +808,13 @@ paths:
                     status: 403
                     error: FORBIDDEN
                     message: Verify your email address before signing in.
+                    timestamp: 2026-07-20T15:00:00Z
+                hostBanned:
+                  summary: Client's host is banned from this account
+                  value:
+                    status: 403
+                    error: FORBIDDEN
+                    message: Host 203.0.113.42 is banned from accessing this account
                     timestamp: 2026-07-20T15:00:00Z
 
   /auth/mfa/confirm/change-email/{token}:
@@ -2371,7 +2386,7 @@ components:
         password:
           type: string
           writeOnly: true
-      description: Provide either username or email (at least one required)
+      description: Provide either username or email, not both
       example:
         username: jdoe
         password: s3cur3P@ss
