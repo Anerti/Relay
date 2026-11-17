@@ -14,9 +14,11 @@ import lombok.Getter;
 import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
+import org.hibernate.annotations.DynamicUpdate;
 import org.hibernate.annotations.UpdateTimestamp;
 
 @Entity
+@DynamicUpdate
 @Table(name = "\"user\"", schema = "relay_app")
 @Getter
 @Setter

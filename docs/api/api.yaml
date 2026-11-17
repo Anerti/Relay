@@ -1124,8 +1124,12 @@ paths:
         Updates the caller's own username, first name or last name. Omitted or null fields
         are left unchanged, so an empty object returns the account as is. Only the account
         owner may update it, whatever their role: a userId other than the token's subject is
-        403 before any lookup, and the caller's own account no longer existing is 404. The
-        body is validated before the access check. This endpoint requires authentication.
+        403 before any lookup, and the caller's own account no longer existing is 404. An
+        unverified account is 403 and records the caller's host and a MEDIUM "[PROFILE]: Update
+        failed due to unverified account" event. Changing the username, first name or last name records the
+        caller's host and an INFO "[PROFILE]: Profile data changed" event. Concurrent updates of different fields do
+        not overwrite each other. The body is validated before the access check. This endpoint
+        requires authentication.
       tags: [Users]
       security:
         - bearerAuth: []
@@ -1183,8 +1187,8 @@ paths:
                 timestamp: 2026-07-20T15:00:00Z
         '403':
           description: >-
-            The userId is not the caller's own, or the token is bound to a different IP than
-            the request's
+            The userId is not the caller's own, the account is unverified, or the token is
+            bound to a different IP than the request's
           content:
             application/json:
               schema:
@@ -1196,6 +1200,13 @@ paths:
                     status: 403
                     error: FORBIDDEN
                     message: Cannot access this resource.
+                    timestamp: 2026-07-20T15:00:00Z
+                notVerified:
+                  summary: Account not verified
+                  value:
+                    status: 403
+                    error: FORBIDDEN
+                    message: Verify your email address before updating your profile.
                     timestamp: 2026-07-20T15:00:00Z
                 otherIp:
                   summary: Token bound to another IP address
@@ -1238,7 +1249,7 @@ paths:
                 message: Cannot use this username
                 timestamp: 2026-07-20T15:00:00Z
         '415':
-          description: Content-Type is not application/json
+          description: Content-Type is not application/json, including application/merge-patch+json
           content:
             application/json:
               schema:

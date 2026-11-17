@@ -122,6 +122,15 @@ class UserGetTest extends TestcontainersConfig {
     }
 
     @Test
+    void tokenWithoutSubjectIsUnauthorized() throws Exception {
+        JUser user = createUser("jdoe", UserRole.GUEST);
+
+        getUser(user.getId().toString(), jwtTokenProvider.generateToken(null, "GUEST", CLIENT_IP))
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.message").value("Authentication required."));
+    }
+
+    @Test
     void unknownUserIsNotFound() throws Exception {
         JUser user = createUser("jdoe", UserRole.GUEST);
 

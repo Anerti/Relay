@@ -8,6 +8,7 @@ import com.techindna.relay.exception.http.ForbiddenException;
 import com.techindna.relay.security.ABACRules;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
+import io.jsonwebtoken.MalformedJwtException;
 import jakarta.annotation.Nonnull;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -46,6 +47,9 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
             try {
                 Claims claims = tokenProvider.validateToken(token);
                 String userId = claims.getSubject();
+                if (userId == null || userId.isBlank()) {
+                    throw new MalformedJwtException("Token has no subject");
+                }
                 String role = claims.get("role", String.class);
                 String tokenIpAddress = claims.get("ip_address", String.class);
                 String requestIpAddress = clientDataConfig.ipAddress(request);

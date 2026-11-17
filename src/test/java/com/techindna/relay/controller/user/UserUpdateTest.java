@@ -8,14 +8,23 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.techindna.relay.config.TestcontainersConfig;
+import com.techindna.relay.entity.enums.EventLogSeverity;
 import com.techindna.relay.entity.enums.UserRole;
+import com.techindna.relay.entity.enums.UserStatus;
 import com.techindna.relay.repository.EventLogRepository;
 import com.techindna.relay.repository.HostRepository;
 import com.techindna.relay.repository.UserRepository;
+import com.techindna.relay.repository.model.JEventLog;
+import com.techindna.relay.repository.model.JHost;
 import com.techindna.relay.repository.model.JUser;
 import com.techindna.relay.security.jwt.JwtTokenProvider;
+import java.net.InetAddress;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -158,6 +167,135 @@ class UserUpdateTest extends TestcontainersConfig {
         JUser unchanged = reload(user);
         assertThat(unchanged.getUsername()).isEqualTo("jdoe");
         assertThat(unchanged.getFirstName()).isEqualTo("John");
+        assertThat(hostRepository.count()).isZero();
+        assertThat(eventLogRepository.count()).isZero();
+    }
+
+    @Test
+    void usernameChangeIsLogged() throws Exception {
+        JUser user = createUser("jdoe", UserRole.GUEST);
+
+        updateUser(user.getId().toString(), body(Map.of("username", "jsmith")), tokenFor(user))
+                .andExpect(status().isOk());
+
+        JHost host = hostRepository.findByUserAndIpAddress(user, InetAddress.ofLiteral(CLIENT_IP)).orElseThrow();
+        assertThat(eventLogRepository.count()).isOne();
+        JEventLog event = eventLogRepository.findAll().getFirst();
+        assertThat(event.getHost().getId()).isEqualTo(host.getId());
+        assertThat(event.getSeverity()).isEqualTo(EventLogSeverity.INFO);
+        assertThat(event.getDescription()).isEqualTo("[PROFILE]: Profile data changed");
+    }
+
+    @Test
+    void nameChangeIsLogged() throws Exception {
+        JUser user = createUser("jdoe", UserRole.GUEST);
+
+        updateUser(user.getId().toString(), body(Map.of("lastName", "Smith")), tokenFor(user))
+                .andExpect(status().isOk());
+
+        assertThat(hostRepository.count()).isOne();
+        assertThat(eventLogRepository.findAll().getFirst().getDescription()).isEqualTo("[PROFILE]: Profile data changed");
+    }
+
+    @Test
+    void unchangedProfileIsNotLogged() throws Exception {
+        JUser user = createUser("jdoe", UserRole.GUEST);
+
+        updateUser(user.getId().toString(),
+                body(Map.of("username", "JDOE", "firstName", " John ", "lastName", "Doe")),
+                tokenFor(user))
+                .andExpect(status().isOk());
+
+        assertThat(hostRepository.count()).isZero();
+        assertThat(eventLogRepository.count()).isZero();
+    }
+
+    @Test
+    void concurrentPartialUpdatesKeepBothChanges() throws Exception {
+        JUser user = createUser("jdoe", UserRole.GUEST);
+        String token = tokenFor(user);
+        ExecutorService pool = Executors.newFixedThreadPool(2);
+        CountDownLatch start = new CountDownLatch(1);
+
+        Future<Integer> first = pool.submit(() -> {
+            start.await();
+            return updateUser(user.getId().toString(), body(Map.of("firstName", "Jane")), token)
+                    .andReturn().getResponse().getStatus();
+        });
+        Future<Integer> last = pool.submit(() -> {
+            start.await();
+            return updateUser(user.getId().toString(), body(Map.of("lastName", "Smith")), token)
+                    .andReturn().getResponse().getStatus();
+        });
+        start.countDown();
+
+        assertThat(first.get()).isEqualTo(200);
+        assertThat(last.get()).isEqualTo(200);
+        pool.shutdown();
+
+        JUser updated = reload(user);
+        assertThat(updated.getFirstName()).isEqualTo("Jane");
+        assertThat(updated.getLastName()).isEqualTo("Smith");
+    }
+
+    @Test
+    void nullFieldsLeaveUserUnchanged() throws Exception {
+        JUser user = createUser("jdoe", UserRole.GUEST);
+
+        updateUser(user.getId().toString(), "{\"username\":null,\"firstName\":null,\"lastName\":null}", tokenFor(user))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.username").value("jdoe"))
+                .andExpect(jsonPath("$.firstName").value("John"))
+                .andExpect(jsonPath("$.lastName").value("Doe"));
+    }
+
+    @Test
+    void unknownFieldsAreIgnored() throws Exception {
+        JUser user = createUser("jdoe", UserRole.GUEST);
+
+        updateUser(user.getId().toString(),
+                body(Map.of("firstName", "Jo", "email", "evil@example.com", "role", "superuser",
+                        "password", "x", "status", "locked")),
+                tokenFor(user))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.firstName").value("Jo"))
+                .andExpect(jsonPath("$.email").value("jdoe@example.com"))
+                .andExpect(jsonPath("$.role").value("guest"));
+
+        JUser updated = reload(user);
+        assertThat(updated.getEmail()).isEqualTo("jdoe@example.com");
+        assertThat(updated.getRole()).isEqualTo(UserRole.GUEST);
+        assertThat(updated.getPassword()).isEqualTo("hash");
+        assertThat(updated.getStatus()).isEqualTo(UserStatus.ACTIVE);
+    }
+
+    @Test
+    void tokenWithoutRoleUpdatesOwnProfile() throws Exception {
+        JUser user = createUser("jdoe", UserRole.GUEST);
+
+        updateUser(user.getId().toString(), body(Map.of("firstName", "Jonathan")),
+                jwtTokenProvider.generateToken(user.getId().toString(), null, CLIENT_IP))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.firstName").value("Jonathan"));
+    }
+
+    @Test
+    void unverifiedAccountIsForbidden() throws Exception {
+        JUser user = createUser("jdoe", UserRole.GUEST);
+        user.setVerified(false);
+        userRepository.saveAndFlush(user);
+
+        updateUser(user.getId().toString(), body(Map.of("username", "jsmith")), tokenFor(user))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("Verify your email address before updating your profile."));
+
+        assertThat(reload(user).getUsername()).isEqualTo("jdoe");
+        JHost host = hostRepository.findByUserAndIpAddress(user, InetAddress.ofLiteral(CLIENT_IP)).orElseThrow();
+        assertThat(eventLogRepository.count()).isOne();
+        JEventLog event = eventLogRepository.findAll().getFirst();
+        assertThat(event.getHost().getId()).isEqualTo(host.getId());
+        assertThat(event.getSeverity()).isEqualTo(EventLogSeverity.MEDIUM);
+        assertThat(event.getDescription()).isEqualTo("[PROFILE]: Update failed due to unverified account");
     }
 
     @Test
@@ -245,6 +383,11 @@ class UserUpdateTest extends TestcontainersConfig {
     }
 
     @Test
+    void blankFirstNameIsUnprocessable() throws Exception {
+        assertUnprocessable("firstName", "   ", "firstName" + NAME_FORMAT);
+    }
+
+    @Test
     void malformedUserIdIsBadRequest() throws Exception {
         JUser user = createUser("jdoe", UserRole.GUEST);
 
@@ -272,6 +415,20 @@ class UserUpdateTest extends TestcontainersConfig {
                 tokenFor(user))
                 .andExpect(status().isUnsupportedMediaType())
                 .andExpect(jsonPath("$.message").value("Unsupported content type."));
+    }
+
+    @Test
+    void mergePatchContentTypeIsUnsupported() throws Exception {
+        JUser user = createUser("jdoe", UserRole.GUEST);
+
+        perform(patch("/users/{userId}", user.getId())
+                        .contentType("application/merge-patch+json")
+                        .content(body(Map.of("firstName", "Jonathan"))),
+                tokenFor(user))
+                .andExpect(status().isUnsupportedMediaType())
+                .andExpect(jsonPath("$.message").value("Unsupported content type."));
+
+        assertThat(reload(user).getFirstName()).isEqualTo("John");
     }
 
     @Test
@@ -305,6 +462,18 @@ class UserUpdateTest extends TestcontainersConfig {
         JUser user = createUser("jdoe", UserRole.GUEST);
 
         updateUser(user.getId().toString(), body(Map.of("firstName", "Jonathan")), "not-a-jwt")
+                .andExpect(status().isUnauthorized())
+                .andExpect(jsonPath("$.message").value("Authentication required."));
+
+        assertThat(reload(user).getFirstName()).isEqualTo("John");
+    }
+
+    @Test
+    void tokenWithoutSubjectIsUnauthorized() throws Exception {
+        JUser user = createUser("jdoe", UserRole.GUEST);
+
+        updateUser(user.getId().toString(), body(Map.of("firstName", "Jonathan")),
+                jwtTokenProvider.generateToken(null, "GUEST", CLIENT_IP))
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.message").value("Authentication required."));
 

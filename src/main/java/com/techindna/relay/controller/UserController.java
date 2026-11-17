@@ -4,6 +4,7 @@ import com.techindna.relay.dto.PageResponse;
 import com.techindna.relay.dto.UpdateUserInput;
 import com.techindna.relay.entity.User;
 import com.techindna.relay.service.UserService;
+import jakarta.servlet.http.HttpServletRequest;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
@@ -38,11 +39,15 @@ public class UserController {
         return userService.getUser(userId, authentication);
     }
 
-    @PatchMapping(value = "/{userId}", produces = MediaType.APPLICATION_JSON_VALUE)
+    @PatchMapping(
+            value = "/{userId}",
+            consumes = MediaType.APPLICATION_JSON_VALUE,
+            produces = MediaType.APPLICATION_JSON_VALUE)
     public User updateUser(
             @PathVariable UUID userId,
             @RequestBody UpdateUserInput input,
-            Authentication authentication) {
-        return userService.updateUser(userId, input, authentication);
+            Authentication authentication,
+            HttpServletRequest request) {
+        return userService.updateUser(userId, input, authentication, request);
     }
 }
