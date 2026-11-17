@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.request.MockMvcRequestBuilder
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.content;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.header;
+import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.techindna.relay.config.TestcontainersConfig;
@@ -149,6 +150,13 @@ class AuthVerificationPageTest extends TestcontainersConfig {
     void onlyGetIsPublic() throws Exception {
         mockMvc.perform(post("/auth/verify/{token}", UUID.randomUUID()))
                 .andExpect(status().isUnauthorized());
+    }
+
+    @Test
+    void missingTokenIsNotFound() throws Exception {
+        mockMvc.perform(get("/auth/verify/"))
+                .andExpect(status().isNotFound())
+                .andExpect(jsonPath("$.message").value("Resource not found"));
     }
 
     private ResultActions verificationPage(String token) throws Exception {

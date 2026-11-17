@@ -180,14 +180,14 @@ class UserGetTest extends TestcontainersConfig {
     void unknownPathIsForbidden() throws Exception {
         JUser user = createUser("jdoe", UserRole.GUEST);
 
-        perform(get("/users"), tokenFor(user))
+        perform(get("/users/{userId}/unknown", user.getId()), tokenFor(user))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.message").value("Insufficient privileges."));
     }
 
     @Test
     void unknownPathWithoutTokenIsUnauthorized() throws Exception {
-        perform(get("/users"), null)
+        perform(get("/users/{userId}/unknown", UUID.randomUUID()), null)
                 .andExpect(status().isUnauthorized())
                 .andExpect(jsonPath("$.message").value("Authentication required."));
     }
