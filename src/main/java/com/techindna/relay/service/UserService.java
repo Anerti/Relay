@@ -1,17 +1,22 @@
 package com.techindna.relay.service;
 
 import com.techindna.relay.dto.PageResponse;
+import com.techindna.relay.dto.UpdateUserInput;
 import com.techindna.relay.entity.User;
 import com.techindna.relay.entity.enums.UserRole;
+import com.techindna.relay.exception.http.ConflictException;
 import com.techindna.relay.exception.http.NotFoundException;
 import com.techindna.relay.repository.UserRepository;
 import com.techindna.relay.repository.model.JUser;
 import com.techindna.relay.security.RBACRules;
 import com.techindna.relay.service.mapper.UserMapper;
 import com.techindna.relay.validator.DataValidator;
+import com.techindna.relay.validator.UserValidator;
+import java.sql.SQLException;
 import java.util.Locale;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.security.core.Authentication;
@@ -22,9 +27,12 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class UserService {
 
+    private static final String SQL_STATE_VIOLATION = "23505";
+
     private final UserRepository userRepository;
     private final UserMapper userMapper;
     private final DataValidator dataValidator;
+    private final UserValidator userValidator;
 
     @Transactional(readOnly = true)
     public User getUser(UUID userId, Authentication authentication) {
@@ -38,6 +46,30 @@ public class UserService {
                 user.getId());
 
         return userMapper.toDomain(user);
+    }
+
+    @Transactional
+    public User updateUser(UUID userId, UpdateUserInput input, Authentication authentication) {
+        UpdateUserInput update = userValidator.validateUpdate(input);
+
+        RBACRules.requireOwner(UUID.fromString(authentication.getName()), userId);
+
+        JUser user = userRepository.findById(userId)
+                .orElseThrow(() -> new NotFoundException("User not found"));
+
+        user.setUsername(update.username() == null ? user.getUsername() : update.username());
+        user.setFirstName(update.firstName() == null ? user.getFirstName() : update.firstName());
+        user.setLastName(update.lastName() == null ? user.getLastName() : update.lastName());
+
+        try {
+            return userMapper.toDomain(userRepository.saveAndFlush(user));
+        } catch (DataIntegrityViolationException e) {
+            if (e.getRootCause() instanceof SQLException sqlEx
+                    && SQL_STATE_VIOLATION.equals(sqlEx.getSQLState())) {
+                throw new ConflictException("Cannot use this username");
+            }
+            throw e;
+        }
     }
 
     @Transactional(readOnly = true)

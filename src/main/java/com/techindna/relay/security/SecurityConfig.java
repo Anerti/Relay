@@ -54,6 +54,8 @@ public class SecurityConfig {
                                         .hasRole("SUPERUSER")
                                         .requestMatchers(HttpMethod.GET, "/users/*")
                                         .authenticated()
+                                        .requestMatchers(HttpMethod.PATCH, "/users/*")
+                                        .authenticated()
                                         .anyRequest()
                                         .denyAll())
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)

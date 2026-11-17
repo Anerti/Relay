@@ -1,9 +1,9 @@
-package com.techindna.relay.controller;
+package com.techindna.relay.controller.user;
 
 import static org.hamcrest.Matchers.hasKey;
 import static org.hamcrest.Matchers.not;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
-import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.put;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
@@ -196,7 +196,7 @@ class UserGetTest extends TestcontainersConfig {
     void wrongMethodIsForbidden() throws Exception {
         JUser user = createUser("jdoe", UserRole.GUEST);
 
-        perform(patch("/users/{userId}", user.getId()), tokenFor(user))
+        perform(put("/users/{userId}", user.getId()), tokenFor(user))
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.message").value("Insufficient privileges."));
     }
