@@ -874,6 +874,9 @@ paths:
     get:
       operationId: listUsers
       summary: List users (paginated, superuser only)
+      description: >-
+        Returns one page of accounts with the given role, sorted by creation date.
+        Only a superuser may call it; any other caller gets 403 before the query runs.
       tags: [Users]
       security:
         - bearerAuth: []
@@ -886,9 +889,9 @@ paths:
             maxLength: 100
             pattern: '^[0-9a-zA-Z.@_\- éèê]*$'
           description: >-
-            Optional filter by username, first name, last name, or email (partial
-            match). Only letters, digits, dot, @, underscore, hyphen, space, and
-            éèê are accepted.
+            Optional filter by username, first name, last name, or email (partial,
+            case-insensitive match; `_` and `.` match literally). Only letters, digits,
+            dot, @, underscore, hyphen, space, and éèê are accepted.
         - name: order
           in: query
           required: false
@@ -899,6 +902,7 @@ paths:
           description: >-
             Sort order by account creation date. `asc` (default) lists oldest
             accounts first; `desc` reverses the order to list newest first.
+            Any value other than `desc` is treated as `asc`.
         - name: role
           in: query
           required: false
@@ -937,6 +941,8 @@ paths:
                 properties:
                   data:
                     type: array
+                    nullable: true
+                    description: The page's users, or `null` when no account matches
                     items:
                       $ref: '#/components/schemas/User'
                   meta:
@@ -950,30 +956,54 @@ paths:
               example:
                 status: 401
                 error: UNAUTHORIZED
-                message: Missing or invalid authentication token
+                message: Authentication required.
                 timestamp: 2026-07-20T15:00:00Z
         '403':
-          description: Insufficient permissions (superuser role required)
+          description: >-
+            The caller is not a superuser (a guest, or a token without a role), or the
+            token is bound to a different IP than the request's
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorBody'
-              example:
-                status: 403
-                error: FORBIDDEN
-                message: Insufficient privileges.
-                timestamp: 2026-07-20T15:00:00Z
+              examples:
+                notSuperuser:
+                  summary: Superuser role required
+                  value:
+                    status: 403
+                    error: FORBIDDEN
+                    message: Insufficient privileges.
+                    timestamp: 2026-07-20T15:00:00Z
+                otherIp:
+                  summary: Token bound to another IP address
+                  value:
+                    status: 403
+                    error: FORBIDDEN
+                    message: Cannot access this resource from the current IP address.
+                    timestamp: 2026-07-20T15:00:00Z
         '400':
-          description: Invalid pagination parameters
+          description: >-
+            Invalid pagination parameters (`page` below 1, `size` outside 1 to 100,
+            or a page starting past item 2147483647), or `page` / `size` is not an integer
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorBody'
-              example:
-                status: 400
-                error: BAD REQUEST
-                message: Invalid pagination parameters
-                timestamp: 2026-07-20T15:00:00Z
+              examples:
+                outOfRange:
+                  summary: page or size out of range
+                  value:
+                    status: 400
+                    error: BAD REQUEST
+                    message: Invalid pagination parameters
+                    timestamp: 2026-07-20T15:00:00Z
+                notAnInteger:
+                  summary: page or size is not an integer
+                  value:
+                    status: 400
+                    error: BAD REQUEST
+                    message: 'Invalid parameter: page'
+                    timestamp: 2026-07-20T15:00:00Z
         '422':
           description: Invalid search parameter
           content:

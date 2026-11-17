@@ -50,6 +50,8 @@ public class SecurityConfig {
                                         .permitAll()
                                         .dispatcherTypeMatchers(DispatcherType.ERROR)
                                         .permitAll()
+                                        .requestMatchers(HttpMethod.GET, "/users")
+                                        .hasRole("SUPERUSER")
                                         .requestMatchers(HttpMethod.GET, "/users/*")
                                         .authenticated()
                                         .anyRequest()

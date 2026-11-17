@@ -1,10 +1,14 @@
 package com.techindna.relay.service.mapper;
 
+import com.techindna.relay.dto.Meta;
+import com.techindna.relay.dto.PageResponse;
 import com.techindna.relay.dto.RegisterInput;
 import com.techindna.relay.entity.User;
 import com.techindna.relay.repository.model.JUser;
 import com.techindna.relay.validator.DataValidator;
+import java.util.List;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Component;
 
@@ -37,5 +41,14 @@ public class UserMapper {
                 user.getStatus(),
                 user.getCreatedAt(),
                 user.getUpdatedAt());
+    }
+
+    public PageResponse<User> toPageResponse(Page<JUser> users, int page, int size) {
+        List<User> data = users.getContent().stream().map(this::toDomain).toList();
+
+        return new PageResponse<>(
+                data.isEmpty() ? null : data,
+                new Meta(page, size, users.getTotalElements())
+        );
     }
 }

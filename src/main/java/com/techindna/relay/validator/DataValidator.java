@@ -45,7 +45,8 @@ public class DataValidator {
     }
 
     public void validatePagination(int page, int size) {
-        if (page < 1 || size < MIN_PAGE_SIZE || size > MAX_PAGE_SIZE) {
+        if (page < 1 || size < MIN_PAGE_SIZE || size > MAX_PAGE_SIZE
+                || (long) (page - 1) * size > Integer.MAX_VALUE) {
             throw new BadRequestException("Invalid pagination parameters");
         }
     }
