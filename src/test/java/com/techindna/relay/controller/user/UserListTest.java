@@ -1,4 +1,4 @@
-package com.techindna.relay.controller;
+package com.techindna.relay.controller.user;
 
 import static org.hamcrest.Matchers.contains;
 import static org.hamcrest.Matchers.hasKey;

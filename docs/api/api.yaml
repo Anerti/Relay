@@ -1120,6 +1120,16 @@ paths:
     patch:
       operationId: updateUser
       summary: Update a user
+      description: >-
+        Updates the caller's own username, first name or last name. Omitted or null fields
+        are left unchanged, so an empty object returns the account as is. Only the account
+        owner may update it, whatever their role: a userId other than the token's subject is
+        403 before any lookup, and the caller's own account no longer existing is 404. An
+        unverified account is 403 and records the caller's host and a MEDIUM "[PROFILE]: Update
+        failed due to unverified account" event. Changing the username, first name or last name records the
+        caller's host and an INFO "[PROFILE]: Profile data changed" event. Concurrent updates of different fields do
+        not overwrite each other. The body is validated before the access check. This endpoint
+        requires authentication.
       tags: [Users]
       security:
         - bearerAuth: []
@@ -1145,6 +1155,25 @@ paths:
             application/json:
               schema:
                 $ref: '#/components/schemas/User'
+        '400':
+          description: userId is not a valid UUID, or the body is missing or malformed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+              examples:
+                invalidUserId:
+                  value:
+                    status: 400
+                    error: BAD REQUEST
+                    message: 'Invalid parameter: userId'
+                    timestamp: 2026-07-20T15:00:00Z
+                malformedBody:
+                  value:
+                    status: 400
+                    error: BAD REQUEST
+                    message: Request body is missing or malformed.
+                    timestamp: 2026-07-20T15:00:00Z
         '401':
           description: Missing or invalid authentication token
           content:
@@ -1154,21 +1183,62 @@ paths:
               example:
                 status: 401
                 error: UNAUTHORIZED
-                message: Missing or invalid authentication token
+                message: Authentication required.
                 timestamp: 2026-07-20T15:00:00Z
         '403':
-          description: Insufficient privileges or user not found
+          description: >-
+            The userId is not the caller's own, the account is unverified, or the token is
+            bound to a different IP than the request's
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+              examples:
+                otherAccount:
+                  summary: Not the caller's account
+                  value:
+                    status: 403
+                    error: FORBIDDEN
+                    message: Cannot access this resource.
+                    timestamp: 2026-07-20T15:00:00Z
+                notVerified:
+                  summary: Account not verified
+                  value:
+                    status: 403
+                    error: FORBIDDEN
+                    message: Verify your email address before updating your profile.
+                    timestamp: 2026-07-20T15:00:00Z
+                otherIp:
+                  summary: Token bound to another IP address
+                  value:
+                    status: 403
+                    error: FORBIDDEN
+                    message: Cannot access this resource from the current IP address.
+                    timestamp: 2026-07-20T15:00:00Z
+        '404':
+          description: The caller's own account no longer exists
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorBody'
               example:
-                status: 403
-                error: FORBIDDEN
-                message: Insufficient privileges to access this resource
+                status: 404
+                error: NOT FOUND
+                message: User not found
+                timestamp: 2026-07-20T15:00:00Z
+        '406':
+          description: Accept header excludes application/json; nothing is changed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+              example:
+                status: 406
+                error: NOT ACCEPTABLE
+                message: Not acceptable.
                 timestamp: 2026-07-20T15:00:00Z
         '409':
-          description: Username already exists
+          description: Username already used by another account, ignoring case
           content:
             application/json:
               schema:
@@ -1177,6 +1247,17 @@ paths:
                 status: 409
                 error: CONFLICT
                 message: Cannot use this username
+                timestamp: 2026-07-20T15:00:00Z
+        '415':
+          description: Content-Type is not application/json, including application/merge-patch+json
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+              example:
+                status: 415
+                error: UNSUPPORTED MEDIA TYPE
+                message: Unsupported content type.
                 timestamp: 2026-07-20T15:00:00Z
         '422':
           description: Validation failure
@@ -1187,7 +1268,7 @@ paths:
               example:
                 status: 422
                 error: UNPROCESSABLE CONTENT
-                message: Username must start with a letter and contain only letters, digits, underscores, and hyphens
+                message: Username a is invalid
                 timestamp: 2026-07-20T15:00:00Z
 
     delete:
@@ -2545,22 +2626,23 @@ components:
     # ── Update input ──
     UpdateUserInput:
       type: object
+      description: Every field is optional; omitted or null fields are left unchanged
       properties:
         username:
           type: string
           maxLength: 50
           pattern: "^[a-zA-Z0-9_-]{2,}$"
-          description: Letters, digits, underscores, and hyphens only
+          description: Letters, digits, underscores, and hyphens only; trimmed and lower-cased before storage, unique ignoring case
         firstName:
           type: string
           maxLength: 100
           pattern: '^[\p{L}\p{M}]+([ ''’-][\p{L}\p{M}]+)*$'
-          description: Letters in any script, with single spaces, apostrophes, or hyphens between words; surrounding whitespace is trimmed
+          description: Letters in any script, with single spaces, apostrophes, or hyphens between words; surrounding whitespace is trimmed; length counts Unicode characters
         lastName:
           type: string
           maxLength: 100
           pattern: '^[\p{L}\p{M}]+([ ''’-][\p{L}\p{M}]+)*$'
-          description: Letters in any script, with single spaces, apostrophes, or hyphens between words; surrounding whitespace is trimmed
+          description: Letters in any script, with single spaces, apostrophes, or hyphens between words; surrounding whitespace is trimmed; length counts Unicode characters
       example:
         username: jdoe
         firstName: Jonathan
