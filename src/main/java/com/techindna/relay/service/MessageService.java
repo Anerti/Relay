@@ -1,6 +1,7 @@
 package com.techindna.relay.service;
 
 import com.techindna.relay.config.ClientDataConfig;
+import com.techindna.relay.dto.PageResponse;
 import com.techindna.relay.dto.SendMessageInput;
 import com.techindna.relay.entity.Message;
 import com.techindna.relay.entity.enums.EventLogSeverity;
@@ -15,13 +16,16 @@ import com.techindna.relay.repository.model.JMessage;
 import com.techindna.relay.repository.model.JUser;
 import com.techindna.relay.service.event.HostEventService;
 import com.techindna.relay.service.mapper.MessageMapper;
+import com.techindna.relay.validator.DataValidator;
 import com.techindna.relay.validator.MessageValidator;
 import jakarta.servlet.http.HttpServletRequest;
 import java.sql.SQLException;
-import java.util.List;
+import java.util.Locale;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.security.core.Authentication;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -32,29 +36,43 @@ public class MessageService {
 
     private static final String SQL_STATE_FK_VIOLATION = "23503";
     private static final String USER_NOT_FOUND = "User not found";
-    private static final String ACCOUNT_LOCKED_MESSAGE = "This account is locked and cannot send messages.";
 
     private final MessageRepository messageRepository;
     private final UserRepository userRepository;
     private final MessageValidator messageValidator;
+    private final DataValidator dataValidator;
     private final MessageMapper messageMapper;
     private final HostEventService hostEventService;
     private final ClientDataConfig clientDataConfig;
 
-    @Transactional
-    public List<Message> listMessages(UUID userId, Authentication authentication, HttpServletRequest request) {
+    @Transactional(noRollbackFor = ForbiddenException.class)
+    public PageResponse<Message> listMessages(
+            UUID userId, String order, int page, int size, Authentication authentication, HttpServletRequest request) {
+        dataValidator.validatePagination(page, size);
+
         JUser caller = userRepository.findById(UUID.fromString(authentication.getName()))
                 .orElseThrow(() -> new NotFoundException(USER_NOT_FOUND));
 
-        List<Message> messages = messageRepository.findConversation(caller.getId(), userId).stream()
-                .map(messageMapper::toDomain)
-                .toList();
+        JHost host = hostEventService.recordHost(caller, request);
+        assertAllowed(caller, host, "View", request);
+
+        PageResponse<Message> messages = messageMapper.toPageResponse(
+                messageRepository.findConversation(
+                        caller.getId(),
+                        userId,
+                        PageRequest.of(
+                                page - 1,
+                                size,
+                                Sort.by(
+                                        "desc".equalsIgnoreCase(order) ?
+                                                Sort.Direction.DESC :
+                                                Sort.Direction.ASC,
+                                        "createdAt", "id"))),
+                page,
+                size);
 
         hostEventService.logEvent(
-                hostEventService.recordHost(caller, request),
-                EventLogSeverity.INFO,
-                "[MESSAGE]: Conversation viewed with " + userId,
-                request);
+                host, EventLogSeverity.INFO, "[MESSAGE]: Conversation read with " + userId, request);
 
         return messages;
     }
@@ -75,7 +93,7 @@ public class MessageService {
                 .build();
 
         JHost host = hostEventService.recordHost(sender, request);
-        assertSendAllowed(sender, host, request);
+        assertAllowed(sender, host, "Send", request);
 
         try {
             messageRepository.saveAndFlush(message);
@@ -93,15 +111,16 @@ public class MessageService {
         return messageMapper.toDomain(message);
     }
 
-    private void assertSendAllowed(JUser sender, JHost host, HttpServletRequest request) {
-        if (sender.getStatus() == UserStatus.LOCKED) {
+    private void assertAllowed(JUser user, JHost host, String action, HttpServletRequest request) {
+        if (user.getStatus() == UserStatus.LOCKED) {
             hostEventService.logEvent(
-                    host, EventLogSeverity.MEDIUM, "[MESSAGE]: Send failed due to locked account", request);
-            throw new ForbiddenException(ACCOUNT_LOCKED_MESSAGE);
+                    host, EventLogSeverity.MEDIUM, "[MESSAGE]: " + action + " failed due to locked account", request);
+            throw new ForbiddenException(
+                    "This account is locked and cannot " + action.toLowerCase(Locale.ROOT) + " messages.");
         }
         if (host.getStatus() == HostStatus.BANNED) {
             hostEventService.logEvent(
-                    host, EventLogSeverity.MEDIUM, "[MESSAGE]: Send failed due to banned host", request);
+                    host, EventLogSeverity.MEDIUM, "[MESSAGE]: " + action + " failed due to banned host", request);
             throw new ForbiddenException(
                     "Host " + clientDataConfig.ipAddress(request) + " is banned from accessing this account");
         }

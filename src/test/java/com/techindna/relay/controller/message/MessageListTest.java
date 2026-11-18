@@ -9,7 +9,9 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.techindna.relay.config.TestcontainersConfig;
 import com.techindna.relay.entity.enums.EventLogSeverity;
+import com.techindna.relay.entity.enums.HostStatus;
 import com.techindna.relay.entity.enums.UserRole;
+import com.techindna.relay.entity.enums.UserStatus;
 import com.techindna.relay.repository.EventLogRepository;
 import com.techindna.relay.repository.HostRepository;
 import com.techindna.relay.repository.MessageRepository;
@@ -76,18 +78,142 @@ class MessageListTest extends TestcontainersConfig {
 
         listMessages(other.getId().toString(), tokenFor(caller))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$", hasSize(3)))
-                .andExpect(jsonPath("$[0].id").value(first.getId().toString()))
-                .andExpect(jsonPath("$[0].senderId").value(other.getId().toString()))
-                .andExpect(jsonPath("$[0].receiverId").value(caller.getId().toString()))
-                .andExpect(jsonPath("$[0].replyTo").value(nullValue()))
-                .andExpect(jsonPath("$[0].issuer").value("human"))
-                .andExpect(jsonPath("$[0].content").value("Hi John"))
-                .andExpect(jsonPath("$[0].createdAt").isNotEmpty())
-                .andExpect(jsonPath("$[0].updatedAt").value(nullValue()))
-                .andExpect(jsonPath("$[1].id").value(second.getId().toString()))
-                .andExpect(jsonPath("$[1].senderId").value(caller.getId().toString()))
-                .andExpect(jsonPath("$[2].id").value(third.getId().toString()));
+                .andExpect(jsonPath("$.data", hasSize(3)))
+                .andExpect(jsonPath("$.data[0].id").value(first.getId().toString()))
+                .andExpect(jsonPath("$.data[0].senderId").value(other.getId().toString()))
+                .andExpect(jsonPath("$.data[0].receiverId").value(caller.getId().toString()))
+                .andExpect(jsonPath("$.data[0].replyTo").value(nullValue()))
+                .andExpect(jsonPath("$.data[0].issuer").value("human"))
+                .andExpect(jsonPath("$.data[0].content").value("Hi John"))
+                .andExpect(jsonPath("$.data[0].createdAt").isNotEmpty())
+                .andExpect(jsonPath("$.data[0].updatedAt").value(nullValue()))
+                .andExpect(jsonPath("$.data[1].id").value(second.getId().toString()))
+                .andExpect(jsonPath("$.data[1].senderId").value(caller.getId().toString()))
+                .andExpect(jsonPath("$.data[2].id").value(third.getId().toString()))
+                .andExpect(jsonPath("$.meta.page").value(1))
+                .andExpect(jsonPath("$.meta.size").value(20))
+                .andExpect(jsonPath("$.meta.total").value(3));
+    }
+
+    @Test
+    void paginatesConversation() throws Exception {
+        JUser caller = createUser("jdoe", UserRole.GUEST);
+        JUser other = createUser("alice", UserRole.GUEST);
+        createMessage(caller, other, "One");
+        createMessage(other, caller, "Two");
+        JMessage third = createMessage(caller, other, "Three");
+
+        listMessages(other.getId().toString(), "?page=2&size=2", tokenFor(caller))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data", hasSize(1)))
+                .andExpect(jsonPath("$.data[0].id").value(third.getId().toString()))
+                .andExpect(jsonPath("$.meta.page").value(2))
+                .andExpect(jsonPath("$.meta.size").value(2))
+                .andExpect(jsonPath("$.meta.total").value(3));
+    }
+
+    @Test
+    void pageBeyondLastIsEmpty() throws Exception {
+        JUser caller = createUser("jdoe", UserRole.GUEST);
+        JUser other = createUser("alice", UserRole.GUEST);
+        createMessage(caller, other, "One");
+
+        listMessages(other.getId().toString(), "?page=2", tokenFor(caller))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data").value(nullValue()))
+                .andExpect(jsonPath("$.meta.total").value(1));
+    }
+
+    @Test
+    void descOrderListsNewestFirst() throws Exception {
+        JUser caller = createUser("jdoe", UserRole.GUEST);
+        JUser other = createUser("alice", UserRole.GUEST);
+        JMessage first = createMessage(caller, other, "One");
+        JMessage second = createMessage(other, caller, "Two");
+
+        listMessages(other.getId().toString(), "?order=desc", tokenFor(caller))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data[0].id").value(second.getId().toString()))
+                .andExpect(jsonPath("$.data[1].id").value(first.getId().toString()));
+    }
+
+    @Test
+    void pageZeroIsBadRequest() throws Exception {
+        assertBadPagination("?page=0");
+    }
+
+    @Test
+    void sizeZeroIsBadRequest() throws Exception {
+        assertBadPagination("?size=0");
+    }
+
+    @Test
+    void sizeAboveMaximumIsBadRequest() throws Exception {
+        assertBadPagination("?size=101");
+    }
+
+    @Test
+    void pageOffsetOverflowIsBadRequest() throws Exception {
+        assertBadPagination("?page=2147483647&size=100");
+    }
+
+    @Test
+    void nonNumericPageIsBadRequest() throws Exception {
+        JUser caller = createUser("jdoe", UserRole.GUEST);
+
+        listMessages(caller.getId().toString(), "?page=abc", tokenFor(caller))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Invalid parameter: page"));
+
+        assertNothingRecorded();
+    }
+
+    @Test
+    void lockedCallerIsForbidden() throws Exception {
+        JUser caller = createUser("jdoe", UserRole.GUEST);
+        JUser other = createUser("alice", UserRole.GUEST);
+        createMessage(other, caller, "Hi John");
+        caller.setStatus(UserStatus.LOCKED);
+        userRepository.saveAndFlush(caller);
+
+        listMessages(other.getId().toString(), tokenFor(caller))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("This account is locked and cannot view messages."))
+                .andExpect(jsonPath("$.data").doesNotExist());
+
+        assertBlockedViewLogged(caller, "[MESSAGE]: View failed due to locked account");
+    }
+
+    @Test
+    void bannedHostIsForbidden() throws Exception {
+        JUser caller = createUser("jdoe", UserRole.GUEST);
+        JUser other = createUser("alice", UserRole.GUEST);
+        createMessage(other, caller, "Hi John");
+        hostRepository.saveAndFlush(JHost.builder()
+                .user(caller)
+                .ipAddress(InetAddress.ofLiteral(CLIENT_IP))
+                .status(HostStatus.BANNED)
+                .build());
+
+        listMessages(other.getId().toString(), tokenFor(caller))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("Host " + CLIENT_IP + " is banned from accessing this account"))
+                .andExpect(jsonPath("$.data").doesNotExist());
+
+        assertBlockedViewLogged(caller, "[MESSAGE]: View failed due to banned host");
+    }
+
+    @Test
+    void inactiveCallerListsMessages() throws Exception {
+        JUser caller = createUser("jdoe", UserRole.GUEST);
+        JUser other = createUser("alice", UserRole.GUEST);
+        createMessage(other, caller, "Hi John");
+        caller.setStatus(UserStatus.INACTIVE);
+        userRepository.saveAndFlush(caller);
+
+        listMessages(other.getId().toString(), tokenFor(caller))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.data", hasSize(1)));
     }
 
     @Test
@@ -104,7 +230,7 @@ class MessageListTest extends TestcontainersConfig {
         JEventLog event = eventLogRepository.findAll().getFirst();
         assertThat(event.getHost().getId()).isEqualTo(host.getId());
         assertThat(event.getSeverity()).isEqualTo(EventLogSeverity.INFO);
-        assertThat(event.getDescription()).isEqualTo("[MESSAGE]: Conversation viewed with " + other.getId());
+        assertThat(event.getDescription()).isEqualTo("[MESSAGE]: Conversation read with " + other.getId());
         assertThat(event.getUserAgent()).isEqualTo(USER_AGENT);
     }
 
@@ -131,9 +257,9 @@ class MessageListTest extends TestcontainersConfig {
 
         listMessages(caller.getId().toString(), tokenFor(other))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$", hasSize(2)))
-                .andExpect(jsonPath("$[0].id").value(first.getId().toString()))
-                .andExpect(jsonPath("$[1].id").value(second.getId().toString()));
+                .andExpect(jsonPath("$.data", hasSize(2)))
+                .andExpect(jsonPath("$.data[0].id").value(first.getId().toString()))
+                .andExpect(jsonPath("$.data[1].id").value(second.getId().toString()));
     }
 
     @Test
@@ -147,8 +273,8 @@ class MessageListTest extends TestcontainersConfig {
 
         listMessages(other.getId().toString(), tokenFor(caller))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$", hasSize(1)))
-                .andExpect(jsonPath("$[0].id").value(message.getId().toString()));
+                .andExpect(jsonPath("$.data", hasSize(1)))
+                .andExpect(jsonPath("$.data[0].id").value(message.getId().toString()));
     }
 
     @Test
@@ -162,8 +288,8 @@ class MessageListTest extends TestcontainersConfig {
 
         listMessages(other.getId().toString(), tokenFor(caller))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$", hasSize(1)))
-                .andExpect(jsonPath("$[0].id").value(kept.getId().toString()));
+                .andExpect(jsonPath("$.data", hasSize(1)))
+                .andExpect(jsonPath("$.data[0].id").value(kept.getId().toString()));
     }
 
     @Test
@@ -174,8 +300,8 @@ class MessageListTest extends TestcontainersConfig {
 
         listMessages(caller.getId().toString(), tokenFor(caller))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$", hasSize(1)))
-                .andExpect(jsonPath("$[0].id").value(message.getId().toString()));
+                .andExpect(jsonPath("$.data", hasSize(1)))
+                .andExpect(jsonPath("$.data[0].id").value(message.getId().toString()));
     }
 
     @Test
@@ -185,7 +311,7 @@ class MessageListTest extends TestcontainersConfig {
 
         listMessages(other.getId().toString(), tokenFor(caller))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$", hasSize(0)));
+                .andExpect(jsonPath("$.data").value(nullValue()));
     }
 
     @Test
@@ -194,7 +320,7 @@ class MessageListTest extends TestcontainersConfig {
 
         listMessages(UUID.randomUUID().toString(), tokenFor(caller))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$", hasSize(0)));
+                .andExpect(jsonPath("$.data").value(nullValue()));
     }
 
     @Test
@@ -206,7 +332,7 @@ class MessageListTest extends TestcontainersConfig {
 
         listMessages(other.getId().toString(), tokenFor(superuser))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$", hasSize(0)));
+                .andExpect(jsonPath("$.data").value(nullValue()));
     }
 
     @Test
@@ -218,7 +344,7 @@ class MessageListTest extends TestcontainersConfig {
         listMessages(other.getId().toString(),
                 jwtTokenProvider.generateToken(caller.getId().toString(), null, CLIENT_IP))
                 .andExpect(status().isOk())
-                .andExpect(jsonPath("$", hasSize(1)));
+                .andExpect(jsonPath("$.data", hasSize(1)));
     }
 
     @Test
@@ -296,6 +422,25 @@ class MessageListTest extends TestcontainersConfig {
         assertNothingRecorded();
     }
 
+    private void assertBadPagination(String query) throws Exception {
+        JUser caller = createUser("jdoe", UserRole.GUEST);
+
+        listMessages(caller.getId().toString(), query, tokenFor(caller))
+                .andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.message").value("Invalid pagination parameters"));
+
+        assertNothingRecorded();
+    }
+
+    private void assertBlockedViewLogged(JUser caller, String description) {
+        JHost host = hostRepository.findByUserAndIpAddress(caller, InetAddress.ofLiteral(CLIENT_IP)).orElseThrow();
+        assertThat(eventLogRepository.count()).isOne();
+        JEventLog event = eventLogRepository.findAll().getFirst();
+        assertThat(event.getHost().getId()).isEqualTo(host.getId());
+        assertThat(event.getSeverity()).isEqualTo(EventLogSeverity.MEDIUM);
+        assertThat(event.getDescription()).isEqualTo(description);
+    }
+
     private void assertNothingRecorded() {
         assertThat(hostRepository.count()).isZero();
         assertThat(eventLogRepository.count()).isZero();
@@ -327,6 +472,10 @@ class MessageListTest extends TestcontainersConfig {
 
     private ResultActions listMessages(String userId, String token) throws Exception {
         return perform(get("/messages/users/{userId}", userId), token);
+    }
+
+    private ResultActions listMessages(String userId, String query, String token) throws Exception {
+        return perform(get("/messages/users/" + userId + query), token);
     }
 
     private ResultActions perform(MockHttpServletRequestBuilder builder, String token) throws Exception {
