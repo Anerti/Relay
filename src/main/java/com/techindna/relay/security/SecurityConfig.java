@@ -56,6 +56,8 @@ public class SecurityConfig {
                                         .authenticated()
                                         .requestMatchers(HttpMethod.PATCH, "/users/*")
                                         .authenticated()
+                                        .requestMatchers(HttpMethod.DELETE, "/users/*")
+                                        .authenticated()
                                         .anyRequest()
                                         .denyAll())
                 .addFilterBefore(jwtAuthFilter, UsernamePasswordAuthenticationFilter.class)

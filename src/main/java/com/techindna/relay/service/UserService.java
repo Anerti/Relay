@@ -11,6 +11,7 @@ import com.techindna.relay.exception.http.NotFoundException;
 import com.techindna.relay.repository.UserRepository;
 import com.techindna.relay.repository.model.JUser;
 import com.techindna.relay.security.RBACRules;
+import com.techindna.relay.service.event.AccountDeletionNotificationService;
 import com.techindna.relay.service.event.HostEventService;
 import com.techindna.relay.service.mapper.UserMapper;
 import com.techindna.relay.validator.DataValidator;
@@ -40,6 +41,7 @@ public class UserService {
     private final DataValidator dataValidator;
     private final UserValidator userValidator;
     private final HostEventService hostEventService;
+    private final AccountDeletionNotificationService accountDeletionNotificationService;
 
     @Transactional(readOnly = true)
     public User getUser(UUID userId, Authentication authentication) {
@@ -102,6 +104,19 @@ public class UserService {
         }
 
         return userMapper.toDomain(user);
+    }
+
+    @Transactional
+    public void deleteUser(UUID userId, Authentication authentication, HttpServletRequest request) {
+        RBACRules.requireOwner(UUID.fromString(authentication.getName()), userId);
+
+        JUser user = userRepository.findById(userId)
+                .orElseThrow(() -> new NotFoundException("User not found"));
+
+        userRepository.delete(user);
+        userRepository.flush();
+
+        accountDeletionNotificationService.sendAccountDeletionNotification(user, request);
     }
 
     @Transactional(readOnly = true)
