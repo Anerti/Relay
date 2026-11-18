@@ -1275,13 +1275,13 @@ paths:
       operationId: deleteUser
       summary: Delete a user
       description: >-
-        Deletes the account and sends a deletion-notification email to the
-        account's registered address. A superuser may delete a guest account or
-        their own; a guest may delete only their own account. The email
-        includes the requester's IP address and user agent only when the account
-        owner deleted their own account, so superuser-initiated deletions do not leak
-        the superuser's request metadata. The email send is synchronous, so a mail
-        failure returns 500 and rolls the deletion back.
+        Deletes the caller's own account and sends a deletion-notification email,
+        including the request's IP address and user agent, to the account's registered
+        address. Only the owner may delete an account, whatever the role: a userId other
+        than the caller's is 403 before any lookup, and 404 means the caller's own account
+        no longer exists. The email send is synchronous, so a mail failure returns 500 and
+        rolls the deletion back. The account's hosts and event logs are kept,
+        detached from the deleted account. This endpoint requires authentication.
       tags: [Users]
       security:
         - bearerAuth: []
@@ -1297,6 +1297,17 @@ paths:
           $ref: '#/components/responses/TooManyRequests'
         '204':
           description: User deleted
+        '400':
+          description: userId is not a valid UUID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+              example:
+                status: 400
+                error: BAD REQUEST
+                message: 'Invalid parameter: userId'
+                timestamp: 2026-07-20T15:00:00Z
         '401':
           description: Missing or invalid authentication token
           content:
@@ -1309,18 +1320,30 @@ paths:
                 message: Authentication required.
                 timestamp: 2026-07-20T15:00:00Z
         '403':
-          description: Insufficient permissions
+          description: >-
+            The userId is not the caller's own, or the token is bound to a different IP
+            than the request's
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorBody'
-              example:
-                status: 403
-                error: FORBIDDEN
-                message: Cannot access this resource.
-                timestamp: 2026-07-20T15:00:00Z
+              examples:
+                otherAccount:
+                  summary: Not the caller's account
+                  value:
+                    status: 403
+                    error: FORBIDDEN
+                    message: Cannot access this resource.
+                    timestamp: 2026-07-20T15:00:00Z
+                otherIp:
+                  summary: Token bound to another IP address
+                  value:
+                    status: 403
+                    error: FORBIDDEN
+                    message: Cannot access this resource from the current IP address.
+                    timestamp: 2026-07-20T15:00:00Z
         '404':
-          description: Resource not found
+          description: The caller's own account no longer exists
           content:
             application/json:
               schema:
