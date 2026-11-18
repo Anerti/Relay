@@ -16,6 +16,8 @@ public interface UserRepository extends JpaRepository<JUser, UUID> {
 
     Optional<JUser> findByEmail(String email);
 
+    Optional<JUser> findByIdAndVerifiedTrue(UUID id);
+
     @Query(
             """
             SELECT u FROM JUser u

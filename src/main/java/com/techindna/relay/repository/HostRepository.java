@@ -16,6 +16,8 @@ public interface HostRepository extends JpaRepository<JHost, UUID> {
 
     Optional<JHost> findByUserAndIpAddress(JUser user, InetAddress ipAddress);
 
+    Optional<JHost> findByUserIdAndIpAddress(UUID userId, InetAddress ipAddress);
+
     @Transactional
     @Modifying(flushAutomatically = true)
     @Query(value = """
