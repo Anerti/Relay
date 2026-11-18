@@ -10,6 +10,7 @@ import com.techindna.relay.repository.model.JUser;
 import jakarta.servlet.http.HttpServletRequest;
 import java.net.InetAddress;
 import java.time.Instant;
+import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 
@@ -22,11 +23,15 @@ public class HostEventService {
     private final ClientDataConfig clientDataConfig;
 
     public JHost recordHost(JUser user, HttpServletRequest request) {
+        return recordHost(user.getId(), request);
+    }
+
+    public JHost recordHost(UUID userId, HttpServletRequest request) {
         InetAddress ipAddress = InetAddress.ofLiteral(clientDataConfig.ipAddress(request));
 
-        hostRepository.upsertLastSeen(user.getId(), ipAddress.getHostAddress(), Instant.now());
+        hostRepository.upsertLastSeen(userId, ipAddress.getHostAddress(), Instant.now());
 
-        return hostRepository.findByUserAndIpAddress(user, ipAddress).orElseThrow();
+        return hostRepository.findByUserIdAndIpAddress(userId, ipAddress).orElseThrow();
     }
 
     public void logEvent(

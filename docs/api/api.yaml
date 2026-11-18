@@ -1414,7 +1414,12 @@ paths:
       summary: Send a message to a user
       description: >-
         Sends a direct message to the user with the given ID. The receiver must be a
-        verified account other than the caller. This endpoint requires authentication.
+        verified account; it may be the caller, and its status does not matter. The content is
+        stored as sent (not trimmed), and its length is counted in Unicode characters. The new
+        message has issuer human and replyTo null, and sending it records the caller's host and an
+        INFO "[MESSAGE]: Message sent to {userId}" event. The body is validated before the receiver
+        is looked up. Returns 404 when no verified user has this ID or
+        the caller's own account no longer exists. This endpoint requires authentication.
       tags: [Messages]
       security:
         - bearerAuth: []
@@ -1442,16 +1447,24 @@ paths:
               schema:
                 $ref: '#/components/schemas/Message'
         '400':
-          description: Request body is missing or malformed
+          description: userId is not a valid UUID, or the body is missing or malformed
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorBody'
-              example:
-                status: 400
-                error: BAD REQUEST
-                message: Request body is missing or malformed.
-                timestamp: 2026-07-20T15:00:00Z
+              examples:
+                invalidUserId:
+                  value:
+                    status: 400
+                    error: BAD REQUEST
+                    message: 'Invalid parameter: userId'
+                    timestamp: 2026-07-20T15:00:00Z
+                malformedBody:
+                  value:
+                    status: 400
+                    error: BAD REQUEST
+                    message: Request body is missing or malformed.
+                    timestamp: 2026-07-20T15:00:00Z
         '401':
           description: Missing or invalid authentication token
           content:
@@ -1461,10 +1474,21 @@ paths:
               example:
                 status: 401
                 error: UNAUTHORIZED
-                message: Missing or invalid authentication token
+                message: Authentication required.
+                timestamp: 2026-07-20T15:00:00Z
+        '403':
+          description: The token is bound to a different IP than the request's
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+              example:
+                status: 403
+                error: FORBIDDEN
+                message: Cannot access this resource from the current IP address.
                 timestamp: 2026-07-20T15:00:00Z
         '404':
-          description: No verified user has this ID
+          description: No verified user has this ID, or the caller's own account no longer exists
           content:
             application/json:
               schema:
@@ -1473,6 +1497,28 @@ paths:
                 status: 404
                 error: NOT FOUND
                 message: User not found
+                timestamp: 2026-07-20T15:00:00Z
+        '406':
+          description: Accept header excludes application/json; nothing is sent
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+              example:
+                status: 406
+                error: NOT ACCEPTABLE
+                message: Not acceptable.
+                timestamp: 2026-07-20T15:00:00Z
+        '415':
+          description: Content-Type is not application/json
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+              example:
+                status: 415
+                error: UNSUPPORTED MEDIA TYPE
+                message: Unsupported content type.
                 timestamp: 2026-07-20T15:00:00Z
         '422':
           description: Validation failure
@@ -1494,13 +1540,6 @@ paths:
                     status: 422
                     error: UNPROCESSABLE CONTENT
                     message: content must not exceed 4000 characters
-                    timestamp: 2026-07-20T15:00:00Z
-                selfMessage:
-                  summary: Receiver is the caller
-                  value:
-                    status: 422
-                    error: UNPROCESSABLE CONTENT
-                    message: You cannot send a message to yourself
                     timestamp: 2026-07-20T15:00:00Z
 
   /messages/{messageId}:
