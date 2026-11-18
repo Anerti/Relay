@@ -16,5 +16,6 @@ CREATE TABLE IF NOT EXISTS relay_app.message (
     updated_at  TIMESTAMPTZ
     );
 
-CREATE INDEX IF NOT EXISTS message_sender_id_idx ON relay_app.message (sender_id);
+CREATE INDEX IF NOT EXISTS message_sender_id_receiver_id_created_at_idx
+    ON relay_app.message (sender_id, receiver_id, created_at);
 CREATE INDEX IF NOT EXISTS message_receiver_id_idx ON relay_app.message (receiver_id);

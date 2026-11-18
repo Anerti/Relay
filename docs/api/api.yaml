@@ -1371,10 +1371,15 @@ paths:
       operationId: listMessages
       summary: List messages exchanged with a user
       description: >-
-        Returns all messages exchanged between the caller and the given user in
-        chronological order (oldest first). Deleted messages are not returned. An unknown user, or a user the caller
-        has never exchanged messages with, gives an empty list. This endpoint requires
-        authentication.
+        Returns one page of the messages exchanged between the caller and the given user, sorted by creation date
+        (ties broken by message ID). Deleted messages are not returned. An unknown user, or a user the caller has
+        never exchanged messages with, gives a page with `data: null`. Passing the caller's own ID lists the messages
+        they sent to themselves. Messages whose sender or receiver account has been deleted are not returned. Any
+        role, or none, may list its own conversations. Listing records the caller's host and an INFO
+        "[MESSAGE]: Conversation read with {userId}" event. A locked account or a host banned for the caller's
+        account gets 403 and records a MEDIUM "[MESSAGE]: View failed due to locked account" or
+        "[MESSAGE]: View failed due to banned host" event; inactive accounts can still list. Returns 404 when the
+        caller's own account no longer exists. This endpoint requires authentication.
       tags: [Messages]
       security:
         - bearerAuth: []
@@ -1386,17 +1391,79 @@ paths:
             type: string
             format: uuid
           description: ID of the other user
+        - name: order
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: asc
+          description: >-
+            Sort order by message creation date. `asc` (default) lists oldest messages first; `desc` lists newest
+            first. Any value other than `desc` is treated as `asc`.
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+          description: Page number (1-indexed)
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+          description: Page size
       responses:
         '429':
           $ref: '#/components/responses/TooManyRequests'
         '200':
-          description: Messages, oldest first
+          description: Paginated messages
           content:
             application/json:
               schema:
-                type: array
-                items:
-                  $ref: '#/components/schemas/Message'
+                type: object
+                properties:
+                  data:
+                    type: array
+                    nullable: true
+                    description: The page's messages, or `null` when the page is empty
+                    items:
+                      $ref: '#/components/schemas/Message'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+        '400':
+          description: >-
+            userId is not a valid UUID, invalid pagination parameters (`page` below 1, `size` outside 1 to 100, or a
+            page starting past item 2147483647), or `page` / `size` is not an integer; nothing is recorded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+              examples:
+                invalidUserId:
+                  summary: userId is not a valid UUID
+                  value:
+                    status: 400
+                    error: BAD REQUEST
+                    message: 'Invalid parameter: userId'
+                    timestamp: 2026-07-20T15:00:00Z
+                outOfRange:
+                  summary: page or size out of range
+                  value:
+                    status: 400
+                    error: BAD REQUEST
+                    message: Invalid pagination parameters
+                    timestamp: 2026-07-20T15:00:00Z
+                notAnInteger:
+                  summary: page or size is not an integer
+                  value:
+                    status: 400
+                    error: BAD REQUEST
+                    message: 'Invalid parameter: page'
+                    timestamp: 2026-07-20T15:00:00Z
         '401':
           description: Missing or invalid authentication token
           content:
@@ -1406,7 +1473,54 @@ paths:
               example:
                 status: 401
                 error: UNAUTHORIZED
-                message: Missing or invalid authentication token
+                message: Authentication required.
+                timestamp: 2026-07-20T15:00:00Z
+        '403':
+          description: The token is bound to a different IP than the request's, the caller's account is locked, or the caller's IP is banned for this account
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+              examples:
+                ipMismatch:
+                  value:
+                    status: 403
+                    error: FORBIDDEN
+                    message: Cannot access this resource from the current IP address.
+                    timestamp: 2026-07-20T15:00:00Z
+                accountLocked:
+                  value:
+                    status: 403
+                    error: FORBIDDEN
+                    message: This account is locked and cannot view messages.
+                    timestamp: 2026-07-20T15:00:00Z
+                hostBanned:
+                  value:
+                    status: 403
+                    error: FORBIDDEN
+                    message: Host 203.0.113.7 is banned from accessing this account
+                    timestamp: 2026-07-20T15:00:00Z
+        '404':
+          description: The caller's own account no longer exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+              example:
+                status: 404
+                error: NOT FOUND
+                message: User not found
+                timestamp: 2026-07-20T15:00:00Z
+        '406':
+          description: Accept header excludes application/json; nothing is recorded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+              example:
+                status: 406
+                error: NOT ACCEPTABLE
+                message: Not acceptable.
                 timestamp: 2026-07-20T15:00:00Z
 
     post:
