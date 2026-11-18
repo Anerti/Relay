@@ -18,6 +18,7 @@ import com.techindna.relay.service.mapper.MessageMapper;
 import com.techindna.relay.validator.MessageValidator;
 import jakarta.servlet.http.HttpServletRequest;
 import java.sql.SQLException;
+import java.util.List;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -39,6 +40,24 @@ public class MessageService {
     private final MessageMapper messageMapper;
     private final HostEventService hostEventService;
     private final ClientDataConfig clientDataConfig;
+
+    @Transactional
+    public List<Message> listMessages(UUID userId, Authentication authentication, HttpServletRequest request) {
+        JUser caller = userRepository.findById(UUID.fromString(authentication.getName()))
+                .orElseThrow(() -> new NotFoundException(USER_NOT_FOUND));
+
+        List<Message> messages = messageRepository.findConversation(caller.getId(), userId).stream()
+                .map(messageMapper::toDomain)
+                .toList();
+
+        hostEventService.logEvent(
+                hostEventService.recordHost(caller, request),
+                EventLogSeverity.INFO,
+                "[MESSAGE]: Conversation viewed with " + userId,
+                request);
+
+        return messages;
+    }
 
     @Transactional(noRollbackFor = ForbiddenException.class)
     public Message sendMessage(

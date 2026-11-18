@@ -1372,8 +1372,12 @@ paths:
       summary: List messages exchanged with a user
       description: >-
         Returns all messages exchanged between the caller and the given user in
-        chronological order (oldest first). Deleted messages are not returned. An unknown user, or a user the caller
-        has never exchanged messages with, gives an empty list. This endpoint requires
+        chronological order (oldest first, ties broken by message ID). Deleted messages are not returned. An unknown
+        user, or a user the caller has never exchanged messages with, gives an empty list. Passing the caller's own ID
+        lists the messages they sent to themselves. Messages whose sender or receiver account has been deleted are not
+        returned. Any role, or none, may list its own conversations. Listing records the caller's host and an INFO
+        "[MESSAGE]: Conversation viewed with {userId}" event. Returns 404 when the caller's own account no longer
+        exists. This endpoint requires
         authentication.
       tags: [Messages]
       security:
@@ -1397,6 +1401,17 @@ paths:
                 type: array
                 items:
                   $ref: '#/components/schemas/Message'
+        '400':
+          description: userId is not a valid UUID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+              example:
+                status: 400
+                error: BAD REQUEST
+                message: 'Invalid parameter: userId'
+                timestamp: 2026-07-20T15:00:00Z
         '401':
           description: Missing or invalid authentication token
           content:
@@ -1406,7 +1421,40 @@ paths:
               example:
                 status: 401
                 error: UNAUTHORIZED
-                message: Missing or invalid authentication token
+                message: Authentication required.
+                timestamp: 2026-07-20T15:00:00Z
+        '403':
+          description: The token is bound to a different IP than the request's
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+              example:
+                status: 403
+                error: FORBIDDEN
+                message: Cannot access this resource from the current IP address.
+                timestamp: 2026-07-20T15:00:00Z
+        '404':
+          description: The caller's own account no longer exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+              example:
+                status: 404
+                error: NOT FOUND
+                message: User not found
+                timestamp: 2026-07-20T15:00:00Z
+        '406':
+          description: Accept header excludes application/json; nothing is recorded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+              example:
+                status: 406
+                error: NOT ACCEPTABLE
+                message: Not acceptable.
                 timestamp: 2026-07-20T15:00:00Z
 
     post:
