@@ -1417,9 +1417,13 @@ paths:
         verified account; it may be the caller, and its status does not matter. The content is
         stored as sent (not trimmed), and its length is counted in Unicode characters. The new
         message has issuer human and replyTo null, and sending it records the caller's host and an
-        INFO "[MESSAGE]: Message sent to {userId}" event. The body is validated before the receiver
-        is looked up. Returns 404 when no verified user has this ID or
-        the caller's own account no longer exists. This endpoint requires authentication.
+        INFO "[MESSAGE]: Message sent to {userId}" event. The body is validated before the caller
+        and the receiver are looked up. Returns 404 when no verified user has this ID or
+        the caller's own account no longer exists. A locked caller account, or a caller IP banned
+        for this account, is 403 and records the host plus a MEDIUM
+        "[MESSAGE]: Send failed due to locked account" or
+        "[MESSAGE]: Send failed due to banned host" event; inactive accounts can still send.
+        This endpoint requires authentication.
       tags: [Messages]
       security:
         - bearerAuth: []
@@ -1477,16 +1481,30 @@ paths:
                 message: Authentication required.
                 timestamp: 2026-07-20T15:00:00Z
         '403':
-          description: The token is bound to a different IP than the request's
+          description: The token is bound to a different IP than the request's, the caller's account is locked, or the caller's IP is banned for this account
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorBody'
-              example:
-                status: 403
-                error: FORBIDDEN
-                message: Cannot access this resource from the current IP address.
-                timestamp: 2026-07-20T15:00:00Z
+              examples:
+                ipMismatch:
+                  value:
+                    status: 403
+                    error: FORBIDDEN
+                    message: Cannot access this resource from the current IP address.
+                    timestamp: 2026-07-20T15:00:00Z
+                accountLocked:
+                  value:
+                    status: 403
+                    error: FORBIDDEN
+                    message: This account is locked and cannot send messages.
+                    timestamp: 2026-07-20T15:00:00Z
+                hostBanned:
+                  value:
+                    status: 403
+                    error: FORBIDDEN
+                    message: Host 203.0.113.7 is banned from accessing this account
+                    timestamp: 2026-07-20T15:00:00Z
         '404':
           description: No verified user has this ID, or the caller's own account no longer exists
           content:

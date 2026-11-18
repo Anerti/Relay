@@ -9,6 +9,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 import com.techindna.relay.config.TestcontainersConfig;
 import com.techindna.relay.entity.enums.EventLogSeverity;
+import com.techindna.relay.entity.enums.HostStatus;
 import com.techindna.relay.entity.enums.MessageIssuer;
 import com.techindna.relay.entity.enums.UserRole;
 import com.techindna.relay.entity.enums.UserStatus;
@@ -183,6 +184,48 @@ class MessageSendTest extends TestcontainersConfig {
 
         sendMessage(receiver.getId().toString(), body(CONTENT), tokenFor(sender))
                 .andExpect(status().isCreated());
+    }
+
+    @Test
+    void inactiveSenderSendsMessage() throws Exception {
+        JUser sender = createUser("jdoe", UserRole.GUEST, true);
+        JUser receiver = createUser("alice", UserRole.GUEST, true);
+        sender.setStatus(UserStatus.INACTIVE);
+        userRepository.saveAndFlush(sender);
+
+        sendMessage(receiver.getId().toString(), body(CONTENT), tokenFor(sender))
+                .andExpect(status().isCreated());
+    }
+
+    @Test
+    void lockedSenderIsForbidden() throws Exception {
+        JUser sender = createUser("jdoe", UserRole.GUEST, true);
+        JUser receiver = createUser("alice", UserRole.GUEST, true);
+        sender.setStatus(UserStatus.LOCKED);
+        userRepository.saveAndFlush(sender);
+
+        sendMessage(receiver.getId().toString(), body(CONTENT), tokenFor(sender))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("This account is locked and cannot send messages."));
+
+        assertBlockedSendLogged(sender, "[MESSAGE]: Send failed due to locked account");
+    }
+
+    @Test
+    void bannedHostIsForbidden() throws Exception {
+        JUser sender = createUser("jdoe", UserRole.GUEST, true);
+        JUser receiver = createUser("alice", UserRole.GUEST, true);
+        hostRepository.saveAndFlush(JHost.builder()
+                .user(sender)
+                .ipAddress(InetAddress.ofLiteral(CLIENT_IP))
+                .status(HostStatus.BANNED)
+                .build());
+
+        sendMessage(receiver.getId().toString(), body(CONTENT), tokenFor(sender))
+                .andExpect(status().isForbidden())
+                .andExpect(jsonPath("$.message").value("Host " + CLIENT_IP + " is banned from accessing this account"));
+
+        assertBlockedSendLogged(sender, "[MESSAGE]: Send failed due to banned host");
     }
 
     @Test
@@ -392,6 +435,16 @@ class MessageSendTest extends TestcontainersConfig {
                 .andExpect(jsonPath("$.message").value("Authentication required."));
 
         assertNothingSent();
+    }
+
+    private void assertBlockedSendLogged(JUser sender, String description) {
+        assertThat(messageRepository.count()).isZero();
+        JHost host = hostRepository.findByUserAndIpAddress(sender, InetAddress.ofLiteral(CLIENT_IP)).orElseThrow();
+        assertThat(eventLogRepository.count()).isOne();
+        JEventLog event = eventLogRepository.findAll().getFirst();
+        assertThat(event.getHost().getId()).isEqualTo(host.getId());
+        assertThat(event.getSeverity()).isEqualTo(EventLogSeverity.MEDIUM);
+        assertThat(event.getDescription()).isEqualTo(description);
     }
 
     private void assertNothingSent() {
