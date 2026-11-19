@@ -1776,9 +1776,14 @@ paths:
       summary: Delete a direct message
       description: >-
         Soft-deletes a direct message the caller sent: the row is kept with deletedAt
-        set, and the message can no longer be edited or replied to. Returns 404 under
-        the same conditions as PATCH /messages/{messageId}. This endpoint requires
-        authentication.
+        set, and the message can no longer be edited or replied to and is no longer listed. Returns 404 under
+        the same conditions as PATCH /messages/{messageId}, so deleting an already deleted message is 404, and
+        when the caller's own account no longer exists. Any role, or none, may delete its own messages; a
+        superuser cannot delete other users' messages. Deleting records the caller's host and an INFO
+        "[MESSAGE]: Message {messageId} deleted" event. A locked caller account, or a caller IP banned for this
+        account, is 403 and records the host plus a MEDIUM "[MESSAGE]: Delete failed due to locked account" or
+        "[MESSAGE]: Delete failed due to banned host" event; inactive accounts can still delete. 404s record
+        nothing. This endpoint requires authentication.
       tags: [Messages]
       security:
         - bearerAuth: []
@@ -1794,6 +1799,17 @@ paths:
           $ref: '#/components/responses/TooManyRequests'
         '204':
           description: Message deleted
+        '400':
+          description: messageId is not a valid UUID
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+              example:
+                status: 400
+                error: BAD REQUEST
+                message: 'Invalid parameter: messageId'
+                timestamp: 2026-07-20T15:00:00Z
         '401':
           description: Missing or invalid authentication token
           content:
@@ -1803,19 +1819,52 @@ paths:
               example:
                 status: 401
                 error: UNAUTHORIZED
-                message: Missing or invalid authentication token
+                message: Authentication required.
                 timestamp: 2026-07-20T15:00:00Z
-        '404':
-          description: Message not found, not sent by the caller, or already deleted
+        '403':
+          description: The token is bound to a different IP than the request's, the caller's account is locked, or the caller's IP is banned for this account
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorBody'
-              example:
-                status: 404
-                error: NOT FOUND
-                message: Message not found
-                timestamp: 2026-07-20T15:00:00Z
+              examples:
+                ipMismatch:
+                  value:
+                    status: 403
+                    error: FORBIDDEN
+                    message: Cannot access this resource from the current IP address.
+                    timestamp: 2026-07-20T15:00:00Z
+                accountLocked:
+                  value:
+                    status: 403
+                    error: FORBIDDEN
+                    message: This account is locked and cannot delete messages.
+                    timestamp: 2026-07-20T15:00:00Z
+                hostBanned:
+                  value:
+                    status: 403
+                    error: FORBIDDEN
+                    message: Host 203.0.113.7 is banned from accessing this account
+                    timestamp: 2026-07-20T15:00:00Z
+        '404':
+          description: Message not found, not sent by the caller, or already deleted, or the caller's own account no longer exists
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+              examples:
+                messageNotFound:
+                  value:
+                    status: 404
+                    error: NOT FOUND
+                    message: Message not found
+                    timestamp: 2026-07-20T15:00:00Z
+                userNotFound:
+                  value:
+                    status: 404
+                    error: NOT FOUND
+                    message: User not found
+                    timestamp: 2026-07-20T15:00:00Z
 
   /messages/{messageId}/ai-reply:
     post:

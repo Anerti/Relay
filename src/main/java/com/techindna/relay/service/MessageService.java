@@ -20,6 +20,7 @@ import com.techindna.relay.validator.DataValidator;
 import com.techindna.relay.validator.MessageValidator;
 import jakarta.servlet.http.HttpServletRequest;
 import java.sql.SQLException;
+import java.time.Instant;
 import java.util.Locale;
 import java.util.UUID;
 import lombok.RequiredArgsConstructor;
@@ -109,6 +110,24 @@ public class MessageService {
                 host, EventLogSeverity.INFO, "[MESSAGE]: Message sent to " + userId, request);
 
         return messageMapper.toDomain(message);
+    }
+
+    @Transactional(noRollbackFor = ForbiddenException.class)
+    public void deleteMessage(UUID messageId, Authentication authentication, HttpServletRequest request) {
+        JUser caller = userRepository.findById(UUID.fromString(authentication.getName()))
+                .orElseThrow(() -> new NotFoundException(USER_NOT_FOUND));
+
+        JMessage message = messageRepository.findByIdAndSenderIdAndDeletedAtIsNull(messageId, caller.getId())
+                .orElseThrow(() -> new NotFoundException("Message not found"));
+
+        JHost host = hostEventService.recordHost(caller, request);
+        assertAllowed(caller, host, "Delete", request);
+
+        message.setDeletedAt(Instant.now());
+        messageRepository.saveAndFlush(message);
+
+        hostEventService.logEvent(
+                host, EventLogSeverity.INFO, "[MESSAGE]: Message " + messageId + " deleted", request);
     }
 
     private void assertAllowed(JUser user, JHost host, String action, HttpServletRequest request) {
