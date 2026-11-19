@@ -1,6 +1,7 @@
 package com.techindna.relay.repository;
 
 import com.techindna.relay.repository.model.JMessage;
+import java.util.Optional;
 import java.util.UUID;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
@@ -19,4 +20,6 @@ public interface MessageRepository extends JpaRepository<JMessage, UUID> {
             """)
     Page<JMessage> findConversation(
             @Param("callerId") UUID callerId, @Param("userId") UUID userId, Pageable pageable);
+
+    Optional<JMessage> findByIdAndSenderIdAndDeletedAtIsNull(UUID id, UUID senderId);
 }
