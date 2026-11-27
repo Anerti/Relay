@@ -105,7 +105,8 @@ class AuthRegistrationTest extends TestcontainersConfig {
                 "203.0.113.42",
                 "Lisbon",
                 "Europe/Lisbon",
-                "MEO - SERVICOS DE COMUNICACOES E MULTIMEDIA S.A.");
+                "MEO - SERVICOS DE COMUNICACOES E MULTIMEDIA S.A.")
+                .containsPattern("Registered At\\s+\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z");
 
         JHost host = hostRepository.findByUserAndIpAddress(user, InetAddress.ofLiteral("203.0.113.42")).orElseThrow();
         assertThat(host.getStatus()).isEqualTo(HostStatus.AUTHORIZED);

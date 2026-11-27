@@ -105,7 +105,8 @@ class AuthLoginTest extends TestcontainersConfig {
                 "Lisbon",
                 "Europe/Lisbon",
                 "MEO - SERVICOS DE COMUNICACOES E MULTIMEDIA S.A.")
-                .doesNotContain("Username jdoe", "Name John Doe", "Email jdoe@example.com");
+                .doesNotContain("Username jdoe", "Name John Doe", "Email jdoe@example.com")
+                .containsPattern("Requested At\\s+\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z");
 
         JHost host = hostRepository.findByUserAndIpAddress(user, InetAddress.ofLiteral(LOGIN_IP)).orElseThrow();
         assertThat(host.getStatus()).isEqualTo(HostStatus.AUTHORIZED);

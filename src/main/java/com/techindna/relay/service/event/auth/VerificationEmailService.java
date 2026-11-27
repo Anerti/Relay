@@ -9,6 +9,7 @@ import com.techindna.relay.service.redis.VerificationTokenService;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -27,7 +28,7 @@ public class VerificationEmailService {
 
     public void sendRegistrationVerification(JUser user, HttpServletRequest request) {
         Map<String, Object> variables = clientVariables(user, request);
-        variables.put("time", DateTimeFormatter.ISO_INSTANT.format(user.getCreatedAt()));
+        variables.put("time", DateTimeFormatter.ISO_INSTANT.format(user.getCreatedAt().truncatedTo(ChronoUnit.SECONDS)));
 
         sendVerification(
                 user,
@@ -39,7 +40,7 @@ public class VerificationEmailService {
 
     public void sendLoginVerification(JUser user, HttpServletRequest request) {
         Map<String, Object> variables = clientVariables(user, request);
-        variables.put("time", DateTimeFormatter.ISO_INSTANT.format(Instant.now()));
+        variables.put("time", DateTimeFormatter.ISO_INSTANT.format(Instant.now().truncatedTo(ChronoUnit.SECONDS)));
 
         sendVerification(
                 user,
