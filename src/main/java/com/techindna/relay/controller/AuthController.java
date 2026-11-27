@@ -1,9 +1,11 @@
 package com.techindna.relay.controller;
 
+import com.techindna.relay.dto.ChangePasswordInput;
 import com.techindna.relay.dto.LoginInput;
 import com.techindna.relay.dto.MessageBody;
 import com.techindna.relay.dto.RegisterInput;
 import com.techindna.relay.dto.VerifyRegistrationResponse;
+import com.techindna.relay.service.auth.ChangePasswordService;
 import com.techindna.relay.service.auth.LoginService;
 import com.techindna.relay.service.auth.RegistrationService;
 import com.techindna.relay.service.auth.VerificationService;
@@ -14,6 +16,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
+import org.springframework.security.core.Authentication;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -31,6 +34,7 @@ public class AuthController {
     private final RegistrationService registrationService;
     private final LoginService loginService;
     private final VerificationService verificationService;
+    private final ChangePasswordService changePasswordService;
 
     @PostMapping(value = "/register", produces = MediaType.APPLICATION_JSON_VALUE)
     @ResponseStatus(HttpStatus.ACCEPTED)
@@ -42,6 +46,15 @@ public class AuthController {
     @ResponseStatus(HttpStatus.ACCEPTED)
     public MessageBody login(@RequestBody LoginInput input, HttpServletRequest request) {
         return loginService.login(input, request);
+    }
+
+    @PostMapping(
+            value = "/change-password",
+            consumes = MediaType.APPLICATION_JSON_VALUE,
+            produces = MediaType.APPLICATION_JSON_VALUE)
+    public MessageBody changePassword(
+            @RequestBody ChangePasswordInput input, Authentication authentication, HttpServletRequest request) {
+        return changePasswordService.changePassword(input, authentication, request);
     }
 
     @GetMapping("/verify/{token}")

@@ -90,7 +90,8 @@ class UserDeleteTest extends TestcontainersConfig {
                 "Your account was deleted",
                 "Your account has been deleted. If you made this request",
                 CLIENT_IP,
-                USER_AGENT);
+                USER_AGENT)
+                .containsPattern("Deleted At\\s+\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z");
     }
 
     @Test

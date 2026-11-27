@@ -9,6 +9,7 @@ import com.techindna.relay.service.mail.EmailService;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
@@ -27,7 +28,7 @@ public class AccountDeletionNotificationService {
         variables.put("firstName", user.getFirstName());
         variables.put("ipAddress", clientDataConfig.ipAddress(request));
         variables.put("userAgent", clientDataConfig.userAgent(request));
-        variables.put("time", DateTimeFormatter.ISO_INSTANT.format(Instant.now()));
+        variables.put("time", DateTimeFormatter.ISO_INSTANT.format(Instant.now().truncatedTo(ChronoUnit.SECONDS)));
 
         try {
             emailService.sendMail(new EmailDetails(
