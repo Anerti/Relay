@@ -8,6 +8,7 @@ import com.techindna.relay.service.mail.EmailService;
 import jakarta.servlet.http.HttpServletRequest;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
+import java.time.temporal.ChronoUnit;
 import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.mail.MailException;
@@ -23,7 +24,7 @@ public class PasswordChangeNotificationService {
     public void sendPasswordChangeNotification(JUser user, HttpServletRequest request) {
         Map<String, Object> variables = clientDetailsService.clientVariables(request);
         variables.put("firstName", user.getFirstName());
-        variables.put("time", DateTimeFormatter.ISO_INSTANT.format(Instant.now()));
+        variables.put("time", DateTimeFormatter.ISO_INSTANT.format(Instant.now().truncatedTo(ChronoUnit.SECONDS)));
 
         try {
             emailService.sendMail(new EmailDetails(

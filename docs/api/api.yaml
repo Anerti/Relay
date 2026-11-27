@@ -512,6 +512,13 @@ paths:
                     error: UNPROCESSABLE CONTENT
                     message: oldPassword is required and cannot be blank
                     timestamp: 2026-07-20T15:00:00Z
+                oldPasswordTooLong:
+                  summary: oldPassword exceeds 255 characters
+                  value:
+                    status: 422
+                    error: UNPROCESSABLE CONTENT
+                    message: oldPassword must not exceed 255 characters
+                    timestamp: 2026-07-20T15:00:00Z
                 passwordTooShort:
                   summary: New password too short
                   value:
@@ -3002,8 +3009,9 @@ components:
       properties:
         oldPassword:
           type: string
+          maxLength: 255
           writeOnly: true
-          description: Current password for authentication
+          description: Current password for authentication; length counts Unicode characters
         newPassword:
           type: string
           minLength: 12

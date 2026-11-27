@@ -70,6 +70,7 @@ public class AuthValidator {
 
     public void validateChangePassword(ChangePasswordInput input) {
         dataValidator.checkNullData("oldPassword", input.oldPassword());
+        dataValidator.checkStringLength("oldPassword", input.oldPassword(), 255);
 
         dataValidator.checkPasswordSecurityLevel("newPassword", input.newPassword(), "New password");
         dataValidator.checkNullData("confirmNewPassword", input.confirmNewPassword());

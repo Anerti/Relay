@@ -112,8 +112,10 @@ class AuthChangePasswordTest extends TestcontainersConfig {
                 "-9.1333",
                 "20 km",
                 "MEO - SERVICOS DE COMUNICACOES E MULTIMEDIA S.A.",
-                USER_AGENT)
-                .doesNotContain("N/A");
+                USER_AGENT,
+                "If you did not change your password, contact support immediately.")
+                .doesNotContain("N/A", "sign in and change it")
+                .containsPattern("Changed At\\s+\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z");
 
         JHost host = hostRepository.findByUserAndIpAddress(user, InetAddress.ofLiteral(CLIENT_IP)).orElseThrow();
         assertThat(eventLogRepository.count()).isOne();
@@ -274,6 +276,11 @@ class AuthChangePasswordTest extends TestcontainersConfig {
     @Test
     void blankOldPasswordIsUnprocessable() throws Exception {
         assertUnprocessable("oldPassword", "", "oldPassword is required and cannot be blank");
+    }
+
+    @Test
+    void tooLongOldPasswordIsUnprocessable() throws Exception {
+        assertUnprocessable("oldPassword", PASSWORD + "a".repeat(240), "oldPassword must not exceed 255 characters");
     }
 
     @Test
