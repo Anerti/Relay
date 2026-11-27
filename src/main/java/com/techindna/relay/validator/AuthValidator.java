@@ -1,5 +1,6 @@
 package com.techindna.relay.validator;
 
+import com.techindna.relay.dto.ChangePasswordInput;
 import com.techindna.relay.dto.LoginInput;
 import com.techindna.relay.dto.RegisterInput;
 import com.techindna.relay.exception.http.UnprocessableContentException;
@@ -65,5 +66,19 @@ public class AuthValidator {
         }
 
         dataValidator.checkNullData("password", input.password());
+    }
+
+    public void validateChangePassword(ChangePasswordInput input) {
+        dataValidator.checkNullData("oldPassword", input.oldPassword());
+
+        dataValidator.checkPasswordSecurityLevel("newPassword", input.newPassword(), "New password");
+        dataValidator.checkNullData("confirmNewPassword", input.confirmNewPassword());
+        if (!input.newPassword().equals(input.confirmNewPassword())) {
+            throw new UnprocessableContentException("Passwords do not match");
+        }
+
+        if (input.newPassword().equals(input.oldPassword())) {
+            throw new UnprocessableContentException("Cannot use this password");
+        }
     }
 }

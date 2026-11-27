@@ -372,7 +372,23 @@ paths:
     post:
       operationId: changePassword
       summary: Change the authenticated user's password
-      description: Validates the caller's current credentials (username or email + current password), confirms the new password matches the confirmation field, and changes the password immediately — no verification link or click is required. An email notification is sent to the account's registered address informing the user that the password was changed, including the client IP, user agent, and timestamp of the change. This endpoint requires authentication.
+      description: >-
+        Changes the password of the account identified by the bearer token. The body is validated
+        first: the new password follows the registration password rules, must match
+        confirmNewPassword, and must differ from oldPassword. The caller's host is then recorded and
+        oldPassword is checked against the stored password; a wrong one is 401 and records a MEDIUM
+        "[PASSWORD]: Operation failed due to invalid credentials" event. A locked account, an unverified
+        account, or a host banned for the account is 403 and records a MEDIUM
+        "[PASSWORD]: Operation failed due to locked account", "... unverified account" or
+        "... banned host" event; inactive accounts can still change their password. The new password
+        takes effect immediately, with no verification link, and records an INFO
+        "[PASSWORD]: Password changed" event. A notification is emailed to the account's registered
+        address with the client IP and its GeoIP details (continent, country, city, timezone,
+        latitude, longitude, accuracy radius, AS organization; N/A when the lookup fails), the user
+        agent and the time of the change; the send is synchronous, so a mail failure returns 500 and
+        rolls the change back. Tokens issued before the change stay
+        valid until they expire. Any role, or none, may change its own password. This endpoint
+        requires authentication.
       tags: [Auth]
       security:
         - bearerAuth: []
@@ -393,30 +409,129 @@ paths:
                 $ref: '#/components/schemas/MessageBody'
               example:
                 message: Password changed successfully
-        '401':
-          description: Missing or invalid authentication token or wrong credentials
+        '400':
+          description: Request body is missing or malformed
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorBody'
               example:
-                status: 401
-                error: UNAUTHORIZED
-                message: Invalid credentials
+                status: 400
+                error: BAD REQUEST
+                message: Request body is missing or malformed.
                 timestamp: 2026-07-20T15:00:00Z
-        '422':
-          description: Validation failure
+        '401':
+          description: >-
+            Missing or invalid authentication token, wrong oldPassword, or the token's account no
+            longer exists
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorBody'
               examples:
+                missingToken:
+                  summary: Missing or invalid authentication token
+                  value:
+                    status: 401
+                    error: UNAUTHORIZED
+                    message: Authentication required.
+                    timestamp: 2026-07-20T15:00:00Z
+                wrongCredentials:
+                  summary: Wrong oldPassword, or the account no longer exists
+                  value:
+                    status: 401
+                    error: UNAUTHORIZED
+                    message: Invalid credentials
+                    timestamp: 2026-07-20T15:00:00Z
+        '403':
+          description: >-
+            The account is locked or unverified, the caller's IP is banned for this account, or the
+            token is bound to a different IP than the request's
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+              examples:
+                accountLocked:
+                  value:
+                    status: 403
+                    error: FORBIDDEN
+                    message: This account is locked and cannot change its password.
+                    timestamp: 2026-07-20T15:00:00Z
+                accountNotVerified:
+                  value:
+                    status: 403
+                    error: FORBIDDEN
+                    message: Account has not been verified
+                    timestamp: 2026-07-20T15:00:00Z
+                hostBanned:
+                  value:
+                    status: 403
+                    error: FORBIDDEN
+                    message: Host 203.0.113.7 is banned from accessing this account
+                    timestamp: 2026-07-20T15:00:00Z
+                ipMismatch:
+                  value:
+                    status: 403
+                    error: FORBIDDEN
+                    message: Cannot access this resource from the current IP address.
+                    timestamp: 2026-07-20T15:00:00Z
+        '406':
+          description: Accept header excludes application/json; nothing is changed or recorded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+              example:
+                status: 406
+                error: NOT ACCEPTABLE
+                message: Not acceptable.
+                timestamp: 2026-07-20T15:00:00Z
+        '415':
+          description: Content-Type is not application/json
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+              example:
+                status: 415
+                error: UNSUPPORTED MEDIA TYPE
+                message: Unsupported content type.
+                timestamp: 2026-07-20T15:00:00Z
+        '422':
+          description: Validation failure; nothing is recorded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+              examples:
+                oldPasswordBlank:
+                  summary: oldPassword missing or blank
+                  value:
+                    status: 422
+                    error: UNPROCESSABLE CONTENT
+                    message: oldPassword is required and cannot be blank
+                    timestamp: 2026-07-20T15:00:00Z
                 passwordTooShort:
-                  summary: Password too short
+                  summary: New password too short
                   value:
                     status: 422
                     error: UNPROCESSABLE CONTENT
                     message: New password must be at least 12 characters
+                    timestamp: 2026-07-20T15:00:00Z
+                passwordTooLong:
+                  summary: New password exceeds 255 characters
+                  value:
+                    status: 422
+                    error: UNPROCESSABLE CONTENT
+                    message: newPassword must not exceed 255 characters
+                    timestamp: 2026-07-20T15:00:00Z
+                passwordTooWeak:
+                  summary: New password misses a character class
+                  value:
+                    status: 422
+                    error: UNPROCESSABLE CONTENT
+                    message: New password must contain at least one special character
                     timestamp: 2026-07-20T15:00:00Z
                 passwordsDoNotMatch:
                   summary: Passwords do not match
@@ -430,21 +545,10 @@ paths:
                   value:
                     status: 422
                     error: UNPROCESSABLE CONTENT
-                    message: New password must differ from the current password
+                    message: Cannot use this password
                     timestamp: 2026-07-20T15:00:00Z
-        '403':
-          description: Account not verified or business rule violation
-          content:
-            application/json:
-              schema:
-                $ref: '#/components/schemas/ErrorBody'
-              example:
-                status: 403
-                error: FORBIDDEN
-                message: Account has not been verified
-                timestamp: 2026-07-20T15:00:00Z
         '500':
-          description: Failed to send password-change notification email
+          description: Failed to send password-change notification email; the password is not changed
           content:
             application/json:
               schema:
@@ -2905,7 +3009,7 @@ components:
           minLength: 12
           maxLength: 255
           writeOnly: true
-          description: New password to set
+          description: New password to set. Must contain an uppercase letter, a lowercase letter, a digit, and a special character; must not contain line breaks or other control characters; must differ from oldPassword; length counts Unicode characters
         confirmNewPassword:
           type: string
           writeOnly: true
