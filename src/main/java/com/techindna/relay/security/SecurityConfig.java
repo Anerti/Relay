@@ -60,6 +60,8 @@ public class SecurityConfig {
                                         .authenticated()
                                         .requestMatchers(HttpMethod.DELETE, "/users/*")
                                         .authenticated()
+                                        .requestMatchers(HttpMethod.GET, "/users/*/hosts")
+                                        .authenticated()
                                         .requestMatchers(HttpMethod.GET, "/messages/users/*")
                                         .authenticated()
                                         .requestMatchers(HttpMethod.POST, "/messages/users/*")

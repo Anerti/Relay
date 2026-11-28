@@ -2459,34 +2459,132 @@ paths:
           format: uuid
     get:
       operationId: listHosts
-      summary: List the hosts that accessed a user's account
+      summary: List the hosts that accessed a user's account (paginated)
       description: >-
-        Returns the hosts (client IP addresses) recorded when registering or signing in to the user's
-        account, most recently seen first. A superuser may list the hosts of a guest
-        account or their own; a guest may list only their own. This endpoint requires
+        Returns one page of the hosts (client IP addresses) recorded on the user's account, sorted by
+        lastSeenAt, most recently seen first by default. A host is recorded when a request from its IP
+        registers, signs in or acts on the account. A superuser may list the hosts of a guest account or
+        their own; a guest may list only their own. Pagination is validated first, then the user is looked
+        up (404 before the access check). Listing records no host and no event. This endpoint requires
         authentication.
       tags: [Hosts]
       security:
         - bearerAuth: []
+      parameters:
+        - name: order
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+          description: >-
+            Sort order by lastSeenAt. `desc` (default) lists the most recently seen hosts first;
+            `asc` reverses the order. Any value other than `asc` is treated as `desc`.
+        - name: page
+          in: query
+          schema:
+            type: integer
+            default: 1
+            minimum: 1
+          description: Page number (1-indexed)
+        - name: size
+          in: query
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+          description: Page size
       responses:
         '429':
           $ref: '#/components/responses/TooManyRequests'
         '200':
-          description: Hosts, most recently seen first
+          description: Paginated host list
           content:
             application/json:
               schema:
                 type: object
-                required: [data]
                 properties:
                   data:
                     type: array
+                    nullable: true
+                    description: The page's hosts, or `null` when the account has no host on this page
                     items:
                       $ref: '#/components/schemas/Host'
+                  meta:
+                    $ref: '#/components/schemas/Meta'
+        '400':
+          description: >-
+            userId is not a valid UUID, invalid pagination parameters (`page` below 1, `size` outside
+            1 to 100, or a page starting past item 2147483647), or `page` / `size` is not an integer
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+              examples:
+                invalidUserId:
+                  summary: userId is not a valid UUID
+                  value:
+                    status: 400
+                    error: BAD REQUEST
+                    message: 'Invalid parameter: userId'
+                    timestamp: 2026-07-20T15:00:00Z
+                outOfRange:
+                  summary: page or size out of range
+                  value:
+                    status: 400
+                    error: BAD REQUEST
+                    message: Invalid pagination parameters
+                    timestamp: 2026-07-20T15:00:00Z
+                notAnInteger:
+                  summary: page or size is not an integer
+                  value:
+                    status: 400
+                    error: BAD REQUEST
+                    message: 'Invalid parameter: page'
+                    timestamp: 2026-07-20T15:00:00Z
         '401':
-          $ref: '#/components/responses/Unauthorized'
+          description: Missing or invalid authentication token
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+              example:
+                status: 401
+                error: UNAUTHORIZED
+                message: Authentication required.
+                timestamp: 2026-07-20T15:00:00Z
         '403':
-          $ref: '#/components/responses/HostForbidden'
+          description: >-
+            A guest targeted another account, a superuser targeted another superuser,
+            the token carries no role, or the token is bound to a different IP than the request's
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorBody'
+              examples:
+                otherAccount:
+                  summary: Account not accessible to the caller
+                  value:
+                    status: 403
+                    error: FORBIDDEN
+                    message: Cannot access this resource.
+                    timestamp: 2026-07-20T15:00:00Z
+                noRole:
+                  summary: Token carries no role
+                  value:
+                    status: 403
+                    error: FORBIDDEN
+                    message: Insufficient privileges to access this resource
+                    timestamp: 2026-07-20T15:00:00Z
+                otherIp:
+                  summary: Token bound to another IP address
+                  value:
+                    status: 403
+                    error: FORBIDDEN
+                    message: Cannot access this resource from the current IP address.
+                    timestamp: 2026-07-20T15:00:00Z
         '404':
           description: User not found
           content:
@@ -3233,7 +3331,7 @@ components:
         lastSeenAt:
           type: string
           format: date-time
-          description: Last time this host registered or signed in to the account
+          description: Last time a request from this host was recorded on the account
         updatedAt:
           type: string
           format: date-time

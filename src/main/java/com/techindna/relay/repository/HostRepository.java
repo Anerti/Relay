@@ -6,6 +6,8 @@ import java.net.InetAddress;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
@@ -17,6 +19,8 @@ public interface HostRepository extends JpaRepository<JHost, UUID> {
     Optional<JHost> findByUserAndIpAddress(JUser user, InetAddress ipAddress);
 
     Optional<JHost> findByUserIdAndIpAddress(UUID userId, InetAddress ipAddress);
+
+    Page<JHost> findByUserId(UUID userId, Pageable pageable);
 
     @Transactional
     @Modifying(flushAutomatically = true)
