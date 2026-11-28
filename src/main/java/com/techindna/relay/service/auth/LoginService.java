@@ -1,11 +1,8 @@
 package com.techindna.relay.service.auth;
 
-import com.techindna.relay.config.ClientDataConfig;
 import com.techindna.relay.dto.LoginInput;
 import com.techindna.relay.dto.MessageBody;
 import com.techindna.relay.entity.enums.EventLogSeverity;
-import com.techindna.relay.entity.enums.HostStatus;
-import com.techindna.relay.entity.enums.UserStatus;
 import com.techindna.relay.exception.http.ForbiddenException;
 import com.techindna.relay.exception.http.UnauthorizedException;
 import com.techindna.relay.repository.UserRepository;
@@ -37,7 +34,6 @@ public class LoginService {
     private final PasswordEncoder passwordEncoder;
     private final HostEventService hostEventService;
     private final VerificationEmailService verificationEmailService;
-    private final ClientDataConfig clientDataConfig;
 
     @Transactional(noRollbackFor = {ForbiddenException.class, UnauthorizedException.class})
     public MessageBody login(LoginInput input, HttpServletRequest request) {
@@ -63,7 +59,11 @@ public class LoginService {
             throw new UnauthorizedException(INVALID_CREDENTIALS_MESSAGE);
         }
 
-        assertSignInAllowed(user, host, request);
+        hostEventService.rejectLockedAccount(user, host,
+                "[LOGIN FAILED]: account locked", ACCOUNT_LOCKED_MESSAGE, request);
+        hostEventService.rejectUnverifiedAccount(user, host,
+                "[LOGIN FAILED]: account not verified", ACCOUNT_NOT_VERIFIED_MESSAGE, request);
+        hostEventService.rejectBannedHost(host, "[LOGIN FAILED]: host banned", request);
 
         hostEventService.logEvent(
                 host, EventLogSeverity.INFO, "[LOGIN]: Verification link requested", request);
@@ -71,24 +71,5 @@ public class LoginService {
         verificationEmailService.sendLoginVerification(user, request);
 
         return new MessageBody("A verification link has been sent to your email");
-    }
-
-    private void assertSignInAllowed(JUser user, JHost host, HttpServletRequest request) {
-        if (user.getStatus() == UserStatus.LOCKED) {
-            hostEventService.logEvent(
-                    host, EventLogSeverity.MEDIUM, "[LOGIN FAILED]: account locked", request);
-            throw new ForbiddenException(ACCOUNT_LOCKED_MESSAGE);
-        }
-        if (Boolean.FALSE.equals(user.getVerified())) {
-            hostEventService.logEvent(
-                    host, EventLogSeverity.MEDIUM, "[LOGIN FAILED]: account not verified", request);
-            throw new ForbiddenException(ACCOUNT_NOT_VERIFIED_MESSAGE);
-        }
-        if (host.getStatus() == HostStatus.BANNED) {
-            hostEventService.logEvent(
-                    host, EventLogSeverity.MEDIUM, "[LOGIN FAILED]: host banned", request);
-            throw new ForbiddenException(
-                    "Host " + clientDataConfig.ipAddress(request) + " is banned from accessing this account");
-        }
     }
 }

@@ -1,12 +1,9 @@
 package com.techindna.relay.service;
 
-import com.techindna.relay.config.ClientDataConfig;
 import com.techindna.relay.dto.PageResponse;
 import com.techindna.relay.dto.SendMessageInput;
 import com.techindna.relay.entity.Message;
 import com.techindna.relay.entity.enums.EventLogSeverity;
-import com.techindna.relay.entity.enums.HostStatus;
-import com.techindna.relay.entity.enums.UserStatus;
 import com.techindna.relay.exception.http.ForbiddenException;
 import com.techindna.relay.exception.http.NotFoundException;
 import com.techindna.relay.repository.MessageRepository;
@@ -44,7 +41,6 @@ public class MessageService {
     private final DataValidator dataValidator;
     private final MessageMapper messageMapper;
     private final HostEventService hostEventService;
-    private final ClientDataConfig clientDataConfig;
 
     @Transactional(noRollbackFor = ForbiddenException.class)
     public PageResponse<Message> listMessages(
@@ -131,17 +127,10 @@ public class MessageService {
     }
 
     private void assertAllowed(JUser user, JHost host, String action, HttpServletRequest request) {
-        if (user.getStatus() == UserStatus.LOCKED) {
-            hostEventService.logEvent(
-                    host, EventLogSeverity.MEDIUM, "[MESSAGE]: " + action + " failed due to locked account", request);
-            throw new ForbiddenException(
-                    "This account is locked and cannot " + action.toLowerCase(Locale.ROOT) + " messages.");
-        }
-        if (host.getStatus() == HostStatus.BANNED) {
-            hostEventService.logEvent(
-                    host, EventLogSeverity.MEDIUM, "[MESSAGE]: " + action + " failed due to banned host", request);
-            throw new ForbiddenException(
-                    "Host " + clientDataConfig.ipAddress(request) + " is banned from accessing this account");
-        }
+        hostEventService.rejectLockedAccount(user, host,
+                "[MESSAGE]: " + action + " failed due to locked account",
+                "This account is locked and cannot " + action.toLowerCase(Locale.ROOT) + " messages.",
+                request);
+        hostEventService.rejectBannedHost(host, "[MESSAGE]: " + action + " failed due to banned host", request);
     }
 }

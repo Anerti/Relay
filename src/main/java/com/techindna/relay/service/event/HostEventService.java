@@ -7,6 +7,7 @@ import com.techindna.relay.repository.HostRepository;
 import com.techindna.relay.repository.model.JEventLog;
 import com.techindna.relay.repository.model.JHost;
 import com.techindna.relay.repository.model.JUser;
+import com.techindna.relay.security.ABACRules;
 import jakarta.servlet.http.HttpServletRequest;
 import java.net.InetAddress;
 import java.time.Instant;
@@ -42,5 +43,20 @@ public class HostEventService {
                 .severity(severity)
                 .description(description)
                 .build());
+    }
+
+    public void rejectLockedAccount(
+            JUser user, JHost host, String event, String message, HttpServletRequest request) {
+        ABACRules.rejectLocked(user, message, () -> logEvent(host, EventLogSeverity.MEDIUM, event, request));
+    }
+
+    public void rejectUnverifiedAccount(
+            JUser user, JHost host, String event, String message, HttpServletRequest request) {
+        ABACRules.rejectUnverified(user, message, () -> logEvent(host, EventLogSeverity.MEDIUM, event, request));
+    }
+
+    public void rejectBannedHost(JHost host, String event, HttpServletRequest request) {
+        ABACRules.rejectBannedHost(host, clientDataConfig.ipAddress(request),
+                () -> logEvent(host, EventLogSeverity.MEDIUM, event, request));
     }
 }
