@@ -22,6 +22,8 @@ public interface HostRepository extends JpaRepository<JHost, UUID> {
 
     Page<JHost> findByUserId(UUID userId, Pageable pageable);
 
+    Optional<JHost> findByIdAndUserId(UUID id, UUID userId);
+
     @Transactional
     @Modifying(flushAutomatically = true)
     @Query(value = """
