@@ -900,18 +900,18 @@ paths:
                 message: Invalid or expired token
                 timestamp: 2026-07-20T15:00:00Z
         '403':
-          description: Account is locked, inactive, not verified, or the caller's host is banned
+          description: Account is locked, not verified, or the caller's host is banned
           content:
             application/json:
               schema:
                 $ref: '#/components/schemas/ErrorBody'
               examples:
                 accountLocked:
-                  summary: Account locked or inactive
+                  summary: Account locked
                   value:
                     status: 403
                     error: FORBIDDEN
-                    message: Account is locked or inactive. Please request account access restoration to continue.
+                    message: Account is locked. Please request account access restoration to continue.
                     timestamp: 2026-07-20T15:00:00Z
                 accountNotVerified:
                   summary: Account not yet verified

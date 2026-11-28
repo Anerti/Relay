@@ -3,8 +3,6 @@ package com.techindna.relay.service.auth;
 import com.techindna.relay.config.ClientDataConfig;
 import com.techindna.relay.dto.VerifyRegistrationResponse;
 import com.techindna.relay.entity.enums.EventLogSeverity;
-import com.techindna.relay.entity.enums.HostStatus;
-import com.techindna.relay.entity.enums.UserStatus;
 import com.techindna.relay.exception.http.ForbiddenException;
 import com.techindna.relay.exception.http.UnauthorizedException;
 import com.techindna.relay.repository.UserRepository;
@@ -30,8 +28,8 @@ public class VerificationService {
 
     private static final Logger log = LoggerFactory.getLogger(VerificationService.class);
     private static final String INVALID_TOKEN_MESSAGE = "Invalid or expired token";
-    private static final String ACCOUNT_LOCKED_OR_INACTIVE_MESSAGE =
-            "Account is locked or inactive. Please request account access restoration to continue.";
+    private static final String ACCOUNT_LOCKED_MESSAGE =
+            "Account is locked. Please request account access restoration to continue.";
     private static final String ACCOUNT_NOT_VERIFIED_MESSAGE =
             "Verify your email address before signing in.";
 
@@ -84,7 +82,12 @@ public class VerificationService {
                 .orElseThrow(() -> new UnauthorizedException(INVALID_TOKEN_MESSAGE));
 
         JHost host = hostEventService.recordHost(user, request);
-        assertSignInAllowed(user, host, request);
+
+        hostEventService.rejectLockedAccount(user, host, EventLogSeverity.MEDIUM,
+                "[LOGIN FAILED]: account locked", ACCOUNT_LOCKED_MESSAGE, request);
+        hostEventService.rejectUnverifiedAccount(user, host, EventLogSeverity.MEDIUM,
+                "[LOGIN FAILED]: account not verified", ACCOUNT_NOT_VERIFIED_MESSAGE, request);
+        hostEventService.rejectBannedHost(host, EventLogSeverity.MEDIUM, "[LOGIN FAILED]: host banned", request);
 
         hostEventService.logEvent(
                 host, EventLogSeverity.INFO, "[LOGIN]: Account signed in", request);
@@ -93,24 +96,5 @@ public class VerificationService {
                 user.getId().toString(), user.getRole().name(), clientDataConfig.ipAddress(request));
 
         return new VerifyRegistrationResponse(jwt, userMapper.toDomain(user));
-    }
-
-    private void assertSignInAllowed(JUser user, JHost host, HttpServletRequest request) {
-        if (user.getStatus() != UserStatus.ACTIVE) {
-            hostEventService.logEvent(
-                    host, EventLogSeverity.MEDIUM, "[LOGIN FAILED]: account locked or inactive", request);
-            throw new ForbiddenException(ACCOUNT_LOCKED_OR_INACTIVE_MESSAGE);
-        }
-        if (!Boolean.TRUE.equals(user.getVerified())) {
-            hostEventService.logEvent(
-                    host, EventLogSeverity.MEDIUM, "[LOGIN FAILED]: account not verified", request);
-            throw new ForbiddenException(ACCOUNT_NOT_VERIFIED_MESSAGE);
-        }
-        if (host.getStatus() == HostStatus.BANNED) {
-            hostEventService.logEvent(
-                    host, EventLogSeverity.MEDIUM, "[LOGIN FAILED]: host banned", request);
-            throw new ForbiddenException(
-                    "Host " + clientDataConfig.ipAddress(request) + " is banned from accessing this account");
-        }
     }
 }

@@ -10,6 +10,7 @@ import com.techindna.relay.exception.http.ForbiddenException;
 import com.techindna.relay.exception.http.NotFoundException;
 import com.techindna.relay.repository.UserRepository;
 import com.techindna.relay.repository.model.JUser;
+import com.techindna.relay.security.ABACRules;
 import com.techindna.relay.security.RBACRules;
 import com.techindna.relay.service.event.AccountDeletionNotificationService;
 import com.techindna.relay.service.event.HostEventService;
@@ -67,14 +68,12 @@ public class UserService {
         JUser user = userRepository.findById(userId)
                 .orElseThrow(() -> new NotFoundException("User not found"));
 
-        if (Boolean.FALSE.equals(user.getVerified())) {
-            hostEventService.logEvent(
-                    hostEventService.recordHost(user, request),
-                    EventLogSeverity.MEDIUM,
-                    "[PROFILE]: Update failed due to unverified account",
-                    request);
-            throw new ForbiddenException(ACCOUNT_NOT_VERIFIED_MESSAGE);
-        }
+        ABACRules.rejectUnverified(user, ACCOUNT_NOT_VERIFIED_MESSAGE,
+                () -> hostEventService.logEvent(
+                        hostEventService.recordHost(user, request),
+                        EventLogSeverity.MEDIUM,
+                        "[PROFILE]: Update failed due to unverified account",
+                        request));
 
         boolean profileChanged =
                 (update.username() != null && !update.username().equals(user.getUsername()))

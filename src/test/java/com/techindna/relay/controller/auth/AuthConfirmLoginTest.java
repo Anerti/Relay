@@ -185,23 +185,27 @@ class AuthConfirmLoginTest extends TestcontainersConfig {
         confirm(token, CONFIRM_IP)
                 .andExpect(status().isForbidden())
                 .andExpect(jsonPath("$.message").value(
-                        "Account is locked or inactive. Please request account access restoration to continue."));
+                        "Account is locked. Please request account access restoration to continue."));
 
         assertThat(redis.keys(TOKEN_PREFIX + "*")).isEmpty();
         assertThat(hostRepository.count()).isOne();
-        assertBlockedEvent("account locked or inactive");
+        assertBlockedEvent("account locked");
     }
 
     @Test
-    void inactiveAccountIsForbiddenAndTokenIsConsumed() throws Exception {
+    void inactiveAccountCanConfirmLogin() throws Exception {
         JUser user = createUser(true, UserStatus.INACTIVE);
         String token = verificationTokenService.createForUser(user.getId(), VerificationFlow.LOGIN);
 
-        confirm(token, CONFIRM_IP).andExpect(status().isForbidden());
+        confirm(token, CONFIRM_IP)
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.user.id").value(user.getId().toString()))
+                .andExpect(jsonPath("$.user.userStatus").value("inactive"))
+                .andExpect(jsonPath("$.token").isNotEmpty());
 
         assertThat(redis.keys(TOKEN_PREFIX + "*")).isEmpty();
-        assertThat(hostRepository.count()).isOne();
-        assertBlockedEvent("account locked or inactive");
+        assertThat(eventLogRepository.findAll().getFirst().getDescription())
+                .isEqualTo("[LOGIN]: Account signed in");
     }
 
     @Test

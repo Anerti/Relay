@@ -26,7 +26,7 @@
                     <tr>
                         <td style="padding: 32px;">
                             <p style="margin: 0 0 16px; color: #333333; font-size: 15px; mso-line-height-rule: exactly; line-height: 24px;">
-                                Hello <strong th:text="${firstName}">John</strong>,
+                                Hello <strong th:text="${mail.firstName}">John</strong>,
                             </p>
                             <p style="margin: 0 0 24px; color: #555555; font-size: 14px; mso-line-height-rule: exactly; line-height: 22px;">
                                 We received a request to sign in to your account. Open the link below, then select Confirm on the page to complete your sign-in.
@@ -35,7 +35,7 @@
                             <table width="100%" cellpadding="0" cellspacing="0" role="presentation" style="margin-bottom: 16px;">
                                 <tr>
                                     <td align="center">
-                                        <a th:href="${verificationUrl}" style="display: inline-block; background-color: #1a1a2e; color: #ffffff; font-size: 15px; font-weight: bold; text-decoration: none; padding: 14px 32px; border-radius: 6px; mso-line-height-rule: exactly; line-height: 20px;">Verify</a>
+                                        <a th:href="${mail.verificationUrl}" style="display: inline-block; background-color: #1a1a2e; color: #ffffff; font-size: 15px; font-weight: bold; text-decoration: none; padding: 14px 32px; border-radius: 6px; mso-line-height-rule: exactly; line-height: 20px;">Verify</a>
                                     </td>
                                 </tr>
                             </table>
@@ -54,47 +54,47 @@
                             <table width="100%" cellpadding="0" cellspacing="0" style="border: 1px solid #e0e0e0; border-radius: 4px; overflow: hidden; background-color: #f0f0f0;">
                                 <tr>
                                     <td width="100" style="padding: 10px 12px; color: #555555; font-size: 13px; font-weight: bold; border-bottom: 1px solid #e0e0e0;">IP Address</td>
-                                    <td th:text="${ipAddress}" style="padding: 10px 12px; color: #333333; font-size: 13px; border-bottom: 1px solid #e0e0e0; word-wrap: break-word;">203.0.113.42</td>
+                                    <td th:text="${mail.client.ipAddress}" style="padding: 10px 12px; color: #333333; font-size: 13px; border-bottom: 1px solid #e0e0e0; word-wrap: break-word;">203.0.113.42</td>
                                 </tr>
                                 <tr>
                                     <td width="100" style="padding: 10px 12px; color: #555555; font-size: 13px; font-weight: bold; border-bottom: 1px solid #e0e0e0;">Continent</td>
-                                    <td th:text="${continent} ?: 'N/A'" style="padding: 10px 12px; color: #333333; font-size: 13px; border-bottom: 1px solid #e0e0e0; word-wrap: break-word;">Europe</td>
+                                    <td th:text="${mail.client.geoIp?.continent} ?: 'N/A'" style="padding: 10px 12px; color: #333333; font-size: 13px; border-bottom: 1px solid #e0e0e0; word-wrap: break-word;">Europe</td>
                                 </tr>
                                 <tr>
                                     <td width="100" style="padding: 10px 12px; color: #555555; font-size: 13px; font-weight: bold; border-bottom: 1px solid #e0e0e0;">Country</td>
-                                    <td th:text="${country} ?: 'N/A'" style="padding: 10px 12px; color: #333333; font-size: 13px; border-bottom: 1px solid #e0e0e0; word-wrap: break-word;">Portugal</td>
+                                    <td th:text="${mail.client.geoIp?.country} ?: 'N/A'" style="padding: 10px 12px; color: #333333; font-size: 13px; border-bottom: 1px solid #e0e0e0; word-wrap: break-word;">Portugal</td>
                                 </tr>
                                 <tr>
                                     <td width="100" style="padding: 10px 12px; color: #555555; font-size: 13px; font-weight: bold; border-bottom: 1px solid #e0e0e0;">City</td>
-                                    <td th:text="${city} ?: 'N/A'" style="padding: 10px 12px; color: #333333; font-size: 13px; border-bottom: 1px solid #e0e0e0; word-wrap: break-word;">Lisbon</td>
+                                    <td th:text="${mail.client.geoIp?.city} ?: 'N/A'" style="padding: 10px 12px; color: #333333; font-size: 13px; border-bottom: 1px solid #e0e0e0; word-wrap: break-word;">Lisbon</td>
                                 </tr>
                                 <tr>
                                     <td width="100" style="padding: 10px 12px; color: #555555; font-size: 13px; font-weight: bold; border-bottom: 1px solid #e0e0e0;">Timezone</td>
-                                    <td th:text="${timezone} ?: 'N/A'" style="padding: 10px 12px; color: #333333; font-size: 13px; border-bottom: 1px solid #e0e0e0; word-wrap: break-word;">Europe/Lisbon</td>
+                                    <td th:text="${mail.client.geoIp?.timezone} ?: 'N/A'" style="padding: 10px 12px; color: #333333; font-size: 13px; border-bottom: 1px solid #e0e0e0; word-wrap: break-word;">Europe/Lisbon</td>
                                 </tr>
                                 <tr>
                                     <td width="100" style="padding: 10px 12px; color: #555555; font-size: 13px; font-weight: bold; border-bottom: 1px solid #e0e0e0;">Latitude</td>
-                                    <td th:text="${latitude} ?: 'N/A'" style="padding: 10px 12px; color: #333333; font-size: 13px; border-bottom: 1px solid #e0e0e0; word-wrap: break-word;">38.7167</td>
+                                    <td th:text="${mail.client.geoIp?.latitude} ?: 'N/A'" style="padding: 10px 12px; color: #333333; font-size: 13px; border-bottom: 1px solid #e0e0e0; word-wrap: break-word;">38.7167</td>
                                 </tr>
                                 <tr>
                                     <td width="100" style="padding: 10px 12px; color: #555555; font-size: 13px; font-weight: bold; border-bottom: 1px solid #e0e0e0;">Longitude</td>
-                                    <td th:text="${longitude} ?: 'N/A'" style="padding: 10px 12px; color: #333333; font-size: 13px; border-bottom: 1px solid #e0e0e0; word-wrap: break-word;">-9.1333</td>
+                                    <td th:text="${mail.client.geoIp?.longitude} ?: 'N/A'" style="padding: 10px 12px; color: #333333; font-size: 13px; border-bottom: 1px solid #e0e0e0; word-wrap: break-word;">-9.1333</td>
                                 </tr>
                                 <tr>
                                     <td width="100" style="padding: 10px 12px; color: #555555; font-size: 13px; font-weight: bold; border-bottom: 1px solid #e0e0e0;">Accuracy Radius</td>
-                                    <td th:text="${accuracyRadius} != null ? ${accuracyRadius} + ' km' : 'N/A'" style="padding: 10px 12px; color: #333333; font-size: 13px; border-bottom: 1px solid #e0e0e0; word-wrap: break-word;">20 km</td>
+                                    <td th:text="${mail.client.geoIp?.accuracyRadius} != null ? ${mail.client.geoIp?.accuracyRadius} + ' km' : 'N/A'" style="padding: 10px 12px; color: #333333; font-size: 13px; border-bottom: 1px solid #e0e0e0; word-wrap: break-word;">20 km</td>
                                 </tr>
                                 <tr>
                                     <td width="100" style="padding: 10px 12px; color: #555555; font-size: 13px; font-weight: bold; border-bottom: 1px solid #e0e0e0;">Organization</td>
-                                    <td th:text="${autonomousSystemOrganization} ?: 'N/A'" style="padding: 10px 12px; color: #333333; font-size: 13px; border-bottom: 1px solid #e0e0e0; word-wrap: break-word;">MEO - SERVICOS DE COMUNICACOES E MULTIMEDIA S.A.</td>
+                                    <td th:text="${mail.client.geoIp?.autonomousSystemOrganization} ?: 'N/A'" style="padding: 10px 12px; color: #333333; font-size: 13px; border-bottom: 1px solid #e0e0e0; word-wrap: break-word;">MEO - SERVICOS DE COMUNICACOES E MULTIMEDIA S.A.</td>
                                 </tr>
                                 <tr>
                                     <td width="100" style="padding: 10px 12px; color: #555555; font-size: 13px; font-weight: bold; border-bottom: 1px solid #e0e0e0;">User Agent</td>
-                                    <td th:text="${userAgent}" style="padding: 10px 12px; color: #333333; font-size: 13px; border-bottom: 1px solid #e0e0e0; word-wrap: break-word;">Mozilla/5.0</td>
+                                    <td th:text="${mail.client.userAgent}" style="padding: 10px 12px; color: #333333; font-size: 13px; border-bottom: 1px solid #e0e0e0; word-wrap: break-word;">Mozilla/5.0</td>
                                 </tr>
                                 <tr>
                                     <td width="100" style="padding: 10px 12px; color: #555555; font-size: 13px; font-weight: bold;">Requested At</td>
-                                    <td th:text="${time}" style="padding: 10px 12px; color: #333333; font-size: 13px; word-wrap: break-word;">2025-01-01T00:00:00Z</td>
+                                    <td th:text="${mail.time}" style="padding: 10px 12px; color: #333333; font-size: 13px; word-wrap: break-word;">2025-01-01T00:00:00Z</td>
                                 </tr>
                             </table>
                         </td>

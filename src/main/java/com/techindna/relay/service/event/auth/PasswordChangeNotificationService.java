@@ -2,6 +2,7 @@ package com.techindna.relay.service.event.auth;
 
 import com.techindna.relay.entity.email.EmailDetails;
 import com.techindna.relay.entity.email.EmailTemplate;
+import com.techindna.relay.entity.email.PasswordChangeEmail;
 import com.techindna.relay.exception.http.InternalServerErrorException;
 import com.techindna.relay.repository.model.JUser;
 import com.techindna.relay.service.mail.EmailService;
@@ -9,7 +10,6 @@ import jakarta.servlet.http.HttpServletRequest;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
 import java.time.temporal.ChronoUnit;
-import java.util.Map;
 import lombok.RequiredArgsConstructor;
 import org.springframework.mail.MailException;
 import org.springframework.stereotype.Service;
@@ -22,16 +22,17 @@ public class PasswordChangeNotificationService {
     private final ClientDetailsService clientDetailsService;
 
     public void sendPasswordChangeNotification(JUser user, HttpServletRequest request) {
-        Map<String, Object> variables = clientDetailsService.clientVariables(request);
-        variables.put("firstName", user.getFirstName());
-        variables.put("time", DateTimeFormatter.ISO_INSTANT.format(Instant.now().truncatedTo(ChronoUnit.SECONDS)));
+        PasswordChangeEmail model = new PasswordChangeEmail(
+                user.getFirstName(),
+                DateTimeFormatter.ISO_INSTANT.format(Instant.now().truncatedTo(ChronoUnit.SECONDS)),
+                clientDetailsService.clientDetails(request));
 
         try {
             emailService.sendMail(new EmailDetails(
                     EmailTemplate.PASSWORD_CHANGE_NOTIFICATION,
                     user.getEmail(),
                     "Your password was changed",
-                    variables));
+                    model));
         } catch (MailException e) {
             throw new InternalServerErrorException("Failed to send password-change notification email", e);
         }

@@ -26,7 +26,7 @@
                     <tr>
                         <td style="padding: 32px;">
                             <p style="margin: 0 0 16px; color: #333333; font-size: 15px; mso-line-height-rule: exactly; line-height: 24px;">
-                                Hello <strong th:text="${firstName}">John</strong>,
+                                Hello <strong th:text="${mail.firstName}">John</strong>,
                             </p>
                             <p style="margin: 0 0 24px; color: #555555; font-size: 14px; mso-line-height-rule: exactly; line-height: 22px;">
                                 Your account has been deleted. If you made this request, no further action is required.
@@ -42,15 +42,15 @@
                             <table width="100%" cellpadding="0" cellspacing="0" style="border: 1px solid #e0e0e0; border-radius: 4px; overflow: hidden; background-color: #f0f0f0;">
                                 <tr>
                                     <td width="100" style="padding: 10px 12px; color: #555555; font-size: 13px; font-weight: bold; border-bottom: 1px solid #e0e0e0;">IP Address</td>
-                                    <td th:text="${ipAddress}" style="padding: 10px 12px; color: #333333; font-size: 13px; border-bottom: 1px solid #e0e0e0; word-wrap: break-word;">203.0.113.42</td>
+                                    <td th:text="${mail.ipAddress}" style="padding: 10px 12px; color: #333333; font-size: 13px; border-bottom: 1px solid #e0e0e0; word-wrap: break-word;">203.0.113.42</td>
                                 </tr>
                                 <tr>
                                     <td width="100" style="padding: 10px 12px; color: #555555; font-size: 13px; font-weight: bold; border-bottom: 1px solid #e0e0e0;">User Agent</td>
-                                    <td th:text="${userAgent}" style="padding: 10px 12px; color: #333333; font-size: 13px; border-bottom: 1px solid #e0e0e0; word-wrap: break-word;">Mozilla/5.0</td>
+                                    <td th:text="${mail.userAgent}" style="padding: 10px 12px; color: #333333; font-size: 13px; border-bottom: 1px solid #e0e0e0; word-wrap: break-word;">Mozilla/5.0</td>
                                 </tr>
                                 <tr>
                                     <td width="100" style="padding: 10px 12px; color: #555555; font-size: 13px; font-weight: bold;">Deleted At</td>
-                                    <td th:text="${time}" style="padding: 10px 12px; color: #333333; font-size: 13px; word-wrap: break-word;">2025-01-01T00:00:00Z</td>
+                                    <td th:text="${mail.time}" style="padding: 10px 12px; color: #333333; font-size: 13px; word-wrap: break-word;">2025-01-01T00:00:00Z</td>
                                 </tr>
                             </table>
                         </td>
