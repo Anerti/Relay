@@ -17,6 +17,7 @@ import com.techindna.relay.service.event.HostEventService;
 import com.techindna.relay.service.mapper.HostMapper;
 import com.techindna.relay.validator.DataValidator;
 import com.techindna.relay.validator.HostValidator;
+import jakarta.persistence.EntityManager;
 import jakarta.servlet.http.HttpServletRequest;
 import java.net.InetAddress;
 import java.time.Instant;
@@ -40,6 +41,7 @@ public class HostService {
     private final HostMapper hostMapper;
     private final HostEventService hostEventService;
     private final ClientDataConfig clientDataConfig;
+    private final EntityManager entityManager;
 
     @Transactional(readOnly = true)
     public PageResponse<Host> listHosts(UUID userId, String order, int page, int size, Authentication authentication) {
@@ -85,7 +87,7 @@ public class HostService {
         if (status == HostStatus.BANNED
                 && caller.getId().equals(user.getId())
                 && host.getIpAddress().equals(InetAddress.ofLiteral(clientDataConfig.ipAddress(request)))) {
-            throw new UnprocessableContentException("Cannot ban the actual host you");
+            throw new UnprocessableContentException("You cannot ban the host you are using");
         }
 
         if (host.getStatus() != status) {
@@ -99,6 +101,8 @@ public class HostService {
                     "[HOST]: Host " + host.getIpAddress().getHostAddress() + " "
                             + status.name().toLowerCase(Locale.ROOT),
                     request);
+
+            entityManager.refresh(host);
         }
 
         return hostMapper.toDomain(host);

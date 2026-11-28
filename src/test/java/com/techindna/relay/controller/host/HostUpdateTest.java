@@ -43,6 +43,7 @@ class HostUpdateTest extends TestcontainersConfig {
     private static final String AUTHORIZE = "{\"status\":\"authorized\"}";
     private static final String FORBIDDEN = "Cannot access this resource.";
     private static final String INVALID_STATUS = "status must be authorized or banned";
+    private static final String CURRENT_HOST = "You cannot ban the host you are using";
     private static final Instant LAST_SEEN = Instant.now().minusSeconds(60).truncatedTo(ChronoUnit.SECONDS);
 
     @Autowired
@@ -73,15 +74,15 @@ class HostUpdateTest extends TestcontainersConfig {
         JHost host = createHost(user, HOST_IP, HostStatus.AUTHORIZED);
         Instant before = Instant.now();
 
-        updateHost(user.getId().toString(), host.getId().toString(), BAN, user)
+        ResultActions result = updateHost(user.getId().toString(), host.getId().toString(), BAN, user)
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(host.getId().toString()))
                 .andExpect(jsonPath("$.ipAddress").value(HOST_IP))
                 .andExpect(jsonPath("$.status").value("banned"))
-                .andExpect(jsonPath("$.lastSeenAt").value(LAST_SEEN.toString()))
-                .andExpect(jsonPath("$.updatedAt").isNotEmpty());
+                .andExpect(jsonPath("$.lastSeenAt").value(LAST_SEEN.toString()));
 
         JHost stored = hostRepository.findById(host.getId()).orElseThrow();
+        result.andExpect(jsonPath("$.updatedAt").value(stored.getUpdatedAt().toString()));
         assertThat(stored.getStatus()).isEqualTo(HostStatus.BANNED);
         assertThat(stored.getUpdatedAt()).isAfterOrEqualTo(before.truncatedTo(ChronoUnit.MICROS));
         assertThat(stored.getLastSeenAt()).isEqualTo(LAST_SEEN);
@@ -150,6 +151,22 @@ class HostUpdateTest extends TestcontainersConfig {
         updateHost(superuser.getId().toString(), host.getId().toString(), BAN, superuser)
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("banned"));
+
+        assertThat(hostRepository.findById(host.getId()).orElseThrow().getStatus()).isEqualTo(HostStatus.BANNED);
+        assertEventOnCallerHost(superuser, "[HOST]: Host " + HOST_IP + " banned");
+    }
+
+    @Test
+    void superuserCannotBanOwnHostInUse() throws Exception {
+        JUser superuser = createUser("admin", UserRole.SUPERUSER);
+        JHost host = createHost(superuser, CLIENT_IP, HostStatus.AUTHORIZED);
+
+        updateHost(superuser.getId().toString(), host.getId().toString(), BAN, superuser)
+                .andExpect(status().isUnprocessableContent())
+                .andExpect(jsonPath("$.message").value(CURRENT_HOST));
+
+        assertUnchanged(host, HostStatus.AUTHORIZED);
+        assertNothingRecorded();
     }
 
     @Test
@@ -170,7 +187,7 @@ class HostUpdateTest extends TestcontainersConfig {
 
         updateHost(user.getId().toString(), host.getId().toString(), BAN, user)
                 .andExpect(status().isUnprocessableContent())
-                .andExpect(jsonPath("$.message").value("Cannot ban the actual host you"));
+                .andExpect(jsonPath("$.message").value(CURRENT_HOST));
 
         assertUnchanged(host, HostStatus.AUTHORIZED);
         assertNothingRecorded();
@@ -181,10 +198,14 @@ class HostUpdateTest extends TestcontainersConfig {
         JUser user = createUser("jdoe", UserRole.GUEST);
         JHost host = createHost(user, CLIENT_IP, HostStatus.BANNED);
 
-        updateHost(user.getId().toString(), host.getId().toString(), AUTHORIZE, user)
+        ResultActions result = updateHost(user.getId().toString(), host.getId().toString(), AUTHORIZE, user)
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.status").value("authorized"));
 
+        JHost stored = hostRepository.findById(host.getId()).orElseThrow();
+        assertThat(stored.getLastSeenAt()).isAfter(LAST_SEEN);
+        result.andExpect(jsonPath("$.lastSeenAt").value(stored.getLastSeenAt().toString()))
+                .andExpect(jsonPath("$.updatedAt").value(stored.getUpdatedAt().toString()));
         assertThat(hostRepository.count()).isEqualTo(1);
         assertEventOnCallerHost(user, "[HOST]: Host " + CLIENT_IP + " authorized");
     }
@@ -332,6 +353,7 @@ class HostUpdateTest extends TestcontainersConfig {
                 .andExpect(jsonPath("$.message").value("Request body is missing or malformed."));
 
         assertUnchanged(host, HostStatus.AUTHORIZED);
+        assertNothingRecorded();
     }
 
     @Test
@@ -344,6 +366,7 @@ class HostUpdateTest extends TestcontainersConfig {
                 .andExpect(jsonPath("$.message").value("Request body is missing or malformed."));
 
         assertUnchanged(host, HostStatus.AUTHORIZED);
+        assertNothingRecorded();
     }
 
     @Test

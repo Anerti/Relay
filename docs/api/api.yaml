@@ -2778,7 +2778,7 @@ paths:
                   value:
                     status: 422
                     error: UNPROCESSABLE CONTENT
-                    message: Cannot ban the actual host you
+                    message: You cannot ban the host you are using
                     timestamp: 2026-07-20T15:00:00Z
 
   # ──────────────── Event logs ────────────────
