@@ -45,18 +45,18 @@ public class HostEventService {
                 .build());
     }
 
-    public void rejectLockedAccount(
-            JUser user, JHost host, String event, String message, HttpServletRequest request) {
-        ABACRules.rejectLocked(user, message, () -> logEvent(host, EventLogSeverity.MEDIUM, event, request));
+    public void rejectLockedAccount(JUser user, JHost host, EventLogSeverity severity,
+            String event, String message, HttpServletRequest request) {
+        ABACRules.rejectLocked(user, message, () -> logEvent(host, severity, event, request));
     }
 
-    public void rejectUnverifiedAccount(
-            JUser user, JHost host, String event, String message, HttpServletRequest request) {
-        ABACRules.rejectUnverified(user, message, () -> logEvent(host, EventLogSeverity.MEDIUM, event, request));
+    public void rejectUnverifiedAccount(JUser user, JHost host, EventLogSeverity severity,
+            String event, String message, HttpServletRequest request) {
+        ABACRules.rejectUnverified(user, message, () -> logEvent(host, severity, event, request));
     }
 
-    public void rejectBannedHost(JHost host, String event, HttpServletRequest request) {
+    public void rejectBannedHost(JHost host, EventLogSeverity severity, String event, HttpServletRequest request) {
         ABACRules.rejectBannedHost(host, clientDataConfig.ipAddress(request),
-                () -> logEvent(host, EventLogSeverity.MEDIUM, event, request));
+                () -> logEvent(host, severity, event, request));
     }
 }

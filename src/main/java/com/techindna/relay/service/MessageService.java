@@ -127,10 +127,11 @@ public class MessageService {
     }
 
     private void assertAllowed(JUser user, JHost host, String action, HttpServletRequest request) {
-        hostEventService.rejectLockedAccount(user, host,
+        hostEventService.rejectLockedAccount(user, host, EventLogSeverity.MEDIUM,
                 "[MESSAGE]: " + action + " failed due to locked account",
                 "This account is locked and cannot " + action.toLowerCase(Locale.ROOT) + " messages.",
                 request);
-        hostEventService.rejectBannedHost(host, "[MESSAGE]: " + action + " failed due to banned host", request);
+        hostEventService.rejectBannedHost(host, EventLogSeverity.MEDIUM,
+                "[MESSAGE]: " + action + " failed due to banned host", request);
     }
 }

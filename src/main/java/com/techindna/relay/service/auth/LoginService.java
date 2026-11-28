@@ -59,11 +59,11 @@ public class LoginService {
             throw new UnauthorizedException(INVALID_CREDENTIALS_MESSAGE);
         }
 
-        hostEventService.rejectLockedAccount(user, host,
+        hostEventService.rejectLockedAccount(user, host, EventLogSeverity.MEDIUM,
                 "[LOGIN FAILED]: account locked", ACCOUNT_LOCKED_MESSAGE, request);
-        hostEventService.rejectUnverifiedAccount(user, host,
+        hostEventService.rejectUnverifiedAccount(user, host, EventLogSeverity.MEDIUM,
                 "[LOGIN FAILED]: account not verified", ACCOUNT_NOT_VERIFIED_MESSAGE, request);
-        hostEventService.rejectBannedHost(host, "[LOGIN FAILED]: host banned", request);
+        hostEventService.rejectBannedHost(host, EventLogSeverity.MEDIUM, "[LOGIN FAILED]: host banned", request);
 
         hostEventService.logEvent(
                 host, EventLogSeverity.INFO, "[LOGIN]: Verification link requested", request);

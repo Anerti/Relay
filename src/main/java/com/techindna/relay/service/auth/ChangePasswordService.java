@@ -47,11 +47,14 @@ public class ChangePasswordService {
             throw new UnauthorizedException(INVALID_CREDENTIALS_MESSAGE);
         }
 
-        hostEventService.rejectLockedAccount(user, host, "[PASSWORD]: Operation failed due to locked account",
+        hostEventService.rejectLockedAccount(user, host, EventLogSeverity.MEDIUM,
+                "[PASSWORD]: Operation failed due to locked account",
                 "This account is locked and cannot change its password.", request);
-        hostEventService.rejectUnverifiedAccount(user, host, "[PASSWORD]: Operation failed due to unverified account",
+        hostEventService.rejectUnverifiedAccount(user, host, EventLogSeverity.MEDIUM,
+                "[PASSWORD]: Operation failed due to unverified account",
                 "Account has not been verified", request);
-        hostEventService.rejectBannedHost(host, "[PASSWORD]: Operation failed due to banned host", request);
+        hostEventService.rejectBannedHost(host, EventLogSeverity.MEDIUM,
+                "[PASSWORD]: Operation failed due to banned host", request);
 
         user.setPassword(passwordEncoder.encode(input.newPassword()));
         userRepository.saveAndFlush(user);
