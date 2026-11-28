@@ -42,7 +42,7 @@ Tests get Postgres, Redis, a Mailpit SMTP server, a stub GeoIP server and a rand
 |---|---|
 | `controller` | REST controllers |
 | `dto` | Request and response bodies named after their spec schemas (`RegisterInput`, `MessageBody`) |
-| `entity` | Domain records returned by the API (`User`) and enums; `entity/email` holds `EmailDetails` and `EmailTemplate` |
+| `entity` | Domain records returned by the API (`User`) and enums; `entity/email` holds `EmailDetails`, `EmailTemplate` and the template models (`VerificationEmail`, `PasswordChangeEmail`, `AccountDeletionEmail`, `ClientDetails`), which `EmailService` exposes to Thymeleaf as `mail` (`${mail.firstName}`, `${mail.client.geoIp?.country}`) |
 | `service` | Business logic and transactions: `UserService`, `HostService`, `MessageService`, `auth`, `mail`, `redis`, `mapper`, `event` (`HostEventService`: hosts and event logs), `event/auth` (emails sent by auth flows), `enums` |
 | `repository` | Repositories |
 | `repository/model` | JPA entities, prefixed `J` (`JUser`) |

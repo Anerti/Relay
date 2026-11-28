@@ -5,6 +5,7 @@ import jakarta.mail.MessagingException;
 import jakarta.mail.internet.MimeMessage;
 import java.nio.charset.StandardCharsets;
 import java.util.Locale;
+import java.util.Map;
 
 import lombok.RequiredArgsConstructor;
 import org.slf4j.Logger;
@@ -37,7 +38,7 @@ public class EmailService {
             throw new MailSendException("Mail sender is not configured (spring.mail.username)");
         }
         try {
-            Context context = new Context(Locale.ENGLISH, details.variables());
+            Context context = new Context(Locale.ENGLISH, Map.of("mail", details.model()));
             String html = templateEngine.process(details.template().view(), context);
 
             MimeMessage mimeMessage = javaMailSender.createMimeMessage();
